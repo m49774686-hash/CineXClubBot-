@@ -8,10 +8,19 @@ const http = require("http");
 // MongoDB
 const client = new MongoClient(process.env.MONGO_URI);
 
+let movies;
+
+
+// Connect Database
 async function connectDB() {
   try {
     await client.connect();
+
+    const db = client.db("CineXClub");
+    movies = db.collection("movies");
+
     console.log("✅ MongoDB Connected");
+
   } catch (err) {
     console.log("❌ MongoDB Error:", err.message);
   }
@@ -26,56 +35,113 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
 });
 
 
-// Start command
+// Start
 bot.onText(/\/start/, (msg) => {
+
   bot.sendMessage(
     msg.chat.id,
-    "✅ CineXClub Bot Working!"
+    "✅ CineXClub Bot Working!\n\nMovie name send cheyyandi."
   );
+
 });
 
 
-// Private Channel Video File ID
-bot.on("channel_post", (msg) => {
+// Channel video save
+bot.on("channel_post", async (msg) => {
 
-  console.log("📩 CHANNEL POST RECEIVED");
+  console.log("📩 Channel post received");
 
-  if (msg.video) {
 
+  if (msg.video && msg.caption) {
+
+    const movieName = msg.caption.trim();
     const fileId = msg.video.file_id;
 
-    console.log("🎬 FILE_ID:", fileId);
 
-    bot.sendMessage(
-      msg.chat.id,
-      `File ID:\n${fileId}`
-    );
+    await movies.insertOne({
+      name: movieName.toLowerCase(),
+      file_id: fileId
+    });
 
-  } else {
-    console.log("No video found");
+
+    console.log("🎬 Saved:", movieName);
+
   }
 
 });
 
 
-// Error handler
-bot.on("polling_error", (error) => {
-  console.log("Polling Error:", error.message);
+// Movie search
+bot.on("message", async (msg) => {
+
+  if (!msg.text) return;
+
+  if (msg.text.startsWith("/")) return;
+
+
+  const movieName = msg.text.trim().toLowerCase();
+
+
+  try {
+
+    const movie = await movies.findOne({
+      name: movieName
+    });
+
+
+    if (movie) {
+
+      bot.sendVideo(
+        msg.chat.id,
+        movie.file_id
+      );
+
+
+    } else {
+
+      bot.sendMessage(
+        msg.chat.id,
+        "❌ Movie not found"
+      );
+
+    }
+
+
+  } catch (err) {
+
+    console.log(err);
+
+  }
+
 });
 
 
-console.log("🤖 Bot Started...");
+// Telegram Error
+bot.on("polling_error", (err) => {
+
+  console.log("Polling Error:", err.message);
+
+});
 
 
-// Render keep alive server
+
+console.log("🤖 Bot Started");
+
+
+// Render Server
 const PORT = process.env.PORT || 10000;
 
+
 http.createServer((req, res) => {
+
   res.writeHead(200, {
     "Content-Type": "text/plain"
   });
 
-  res.end("Bot is running!");
+  res.end("Bot is running");
+
 }).listen(PORT, () => {
-  console.log(`🌐 Server running on port ${PORT}`);
+
+  console.log(`🌐 Server running on ${PORT}`);
+
 });

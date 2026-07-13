@@ -20,10 +20,20 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
   polling: true,
 });
 
+
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "✅ CineXClub Bot Working!");
+  bot.sendMessage(msg.chat.id, "Welcome to CineXClub Bot");
 });
 
+bot.on("channel_post", (msg) => {
+  if (msg.video) {
+    console.log("FILE_ID:", msg.video.file_id);
+
+    bot.sendMessage(msg.chat.id, 
+      `File ID:\n${msg.video.file_id}`
+    );
+  }
+});
 console.log("Bot Started...");
 
 const http = require("http");

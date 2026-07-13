@@ -8,94 +8,192 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
 });
 
 
-// Private storage channel
+// Settings
+const FORCE_CHANNEL = "@CineXClub";
 const STORAGE_CHANNEL = "-1004426096451";
 
-// Force join channel
-const FORCE_CHANNEL = "@CineXClub";
+
+// Temporary video storage
+let videos = [];
 
 
-// Video database (temporary)
-let movies = [];
+// Save videos from private channel
+bot.on("channel_post", (msg) => {
+
+  if (msg.chat.id.toString() === STORAGE_CHANNEL) {
+
+    console.log("📩 Storage channel post");
 
 
-// Start + AroLinks parameter
+    if (msg.video && msg.caption) {
+
+      const videoId = msg.caption
+        .trim()
+        .replace(/\s+/g, "");
+
+
+      videos.push({
+        id: videoId,
+        file_id: msg.video.file_id
+      });
+
+
+      console.log("✅ Saved:", videoId);
+      console.log("FILE ID:", msg.video.file_id);
+
+    }
+
+  }
+
+});
+
+
+
+// Check channel join
+async function checkJoin(userId) {
+
+  try {
+
+    const member = await bot.getChatMember(
+      FORCE_CHANNEL,
+      userId
+    );
+
+
+    return (
+      member.status === "member" ||
+      member.status === "administrator" ||
+      member.status === "creator"
+    );
+
+
+  } catch (err) {
+
+    console.log("Join error:", err.message);
+    return false;
+
+  }
+
+}
+
+
+
+// /start handler
 bot.onText(/\/start(.*)/, async (msg, match) => {
 
+
   const chatId = msg.chat.id;
+
   const videoId = match[1].trim();
+
 
 
   if (!videoId) {
 
     bot.sendMessage(
       chatId,
-      "Welcome to CineXClub Bot"
+      "🎬 Welcome to CineXClub Bot"
     );
 
     return;
+
   }
 
 
-  try {
 
-    const member = await bot.getChatMember(
-      FORCE_CHANNEL,
-      chatId
+  const joined = await checkJoin(chatId);
+
+
+
+  if (!joined) {
+
+
+    bot.sendMessage(
+      chatId,
+      "Please join our channel first.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+
+            [
+              {
+                text: "Join Channel",
+                url: "https://t.me/CineXClub"
+              }
+            ],
+
+            [
+              {
+                text: "I've Joined ✅",
+                callback_data: "verify_" + videoId
+              }
+            ]
+
+          ]
+        }
+      }
     );
 
 
-    if (
-      member.status === "left" ||
-      member.status === "kicked"
-    ) {
+    return;
 
-      bot.sendMessage(
-        chatId,
-        "Please join our channel first.",
+  }
+
+
+
+  sendVideo(chatId, videoId);
+
+
+});
+
+
+
+
+// Verify button
+bot.on("callback_query", async (query) => {
+
+
+  const chatId = query.message.chat.id;
+
+
+  if (query.data.startsWith("verify_")) {
+
+
+    const videoId = query.data.replace(
+      "verify_",
+      ""
+    );
+
+
+    const joined = await checkJoin(chatId);
+
+
+
+    if (!joined) {
+
+
+      bot.answerCallbackQuery(
+        query.id,
         {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "Join Channel",
-                  url: "https://t.me/CineXClub"
-                }
-              ]
-            ]
-          }
+          text: "Join channel first"
         }
       );
 
+
       return;
+
     }
 
 
-    const movie = movies.find(
-      (m) => m.id === videoId
+
+    bot.answerCallbackQuery(query.id);
+
+
+    sendVideo(
+      chatId,
+      videoId
     );
 
-
-    if (movie) {
-
-      bot.sendVideo(
-        chatId,
-        movie.file_id
-      );
-
-    } else {
-
-      bot.sendMessage(
-        chatId,
-        "Video not found."
-      );
-
-    }
-
-
-  } catch (err) {
-
-    console.log(err);
 
   }
 
@@ -103,44 +201,76 @@ bot.onText(/\/start(.*)/, async (msg, match) => {
 
 
 
-// Private channel video save
-bot.on("channel_post", (msg) => {
+
+// Send video + delete after 30 minutes
+function sendVideo(chatId, videoId) {
 
 
-  if (msg.chat.id.toString() === STORAGE_CHANNEL) {
+  const video = videos.find(
+    v => v.id === videoId
+  );
 
 
-    if (msg.video && msg.caption) {
+  if (!video) {
 
 
-      const id = msg.caption
-      .trim()
-      .replace(/\s+/g, "");
+    bot.sendMessage(
+      chatId,
+      "❌ Video not found"
+    );
 
 
-      movies.push({
+    return;
 
-        id: id,
-        file_id: msg.video.file_id
+  }
+
+
+
+  bot.sendVideo(
+    chatId,
+    video.file_id,
+    {
+      caption: "🎬 Here is your video\n\n⏳ This video will be deleted after 30 minutes."
+    }
+
+  ).then((sentMsg)=>{
+
+
+    setTimeout(()=>{
+
+
+      bot.deleteMessage(
+        chatId,
+        sentMsg.message_id
+      )
+      .then(()=>{
+
+        console.log("🗑️ Video deleted");
+
+      })
+      .catch(err=>{
+
+        console.log(
+          "Delete error:",
+          err.message
+        );
 
       });
 
 
-      console.log(
-        "Saved:",
-        id
-      );
+    }, 30 * 60 * 1000);
 
-    }
 
-  }
 
-});
+  });
+
+
+}
 
 
 
 // Error
-bot.on("polling_error", (err)=>{
+bot.on("polling_error",(err)=>{
 
   console.log(
     "Polling Error:",
@@ -154,6 +284,7 @@ bot.on("polling_error", (err)=>{
 console.log("🤖 Bot Started");
 
 
+
 // Render server
 const PORT = process.env.PORT || 10000;
 
@@ -164,10 +295,11 @@ http.createServer((req,res)=>{
 
   res.end("Bot Running");
 
+
 }).listen(PORT,()=>{
 
   console.log(
-    "Server running",
+    "🌐 Server running on",
     PORT
   );
 

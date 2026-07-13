@@ -8,90 +8,147 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
 });
 
 
-// Movies storage (Memory)
+// Private storage channel
+const STORAGE_CHANNEL = "-1004426096451";
+
+// Force join channel
+const FORCE_CHANNEL = "@CineXClub";
+
+
+// Video database (temporary)
 let movies = [];
 
 
-// Start
-bot.onText(/\/start/, (msg) => {
+// Start + AroLinks parameter
+bot.onText(/\/start(.*)/, async (msg, match) => {
 
-  bot.sendMessage(
-    msg.chat.id,
-    "✅ CineXClub Bot Working!"
-  );
-
-});
+  const chatId = msg.chat.id;
+  const videoId = match[1].trim();
 
 
-// Channel video save + Channel ID
-bot.on("channel_post", (msg) => {
-
-  console.log("📩 Channel post received");
-
-  console.log("CHANNEL ID:", msg.chat.id);
-
-
-  if (msg.video && msg.caption) {
-
-    const movieName = msg.caption.trim().toLowerCase();
-    const fileId = msg.video.file_id;
-
-
-    movies.push({
-      name: movieName,
-      file_id: fileId
-    });
-
-
-    console.log("🎬 Saved:", movieName);
-    console.log("FILE ID:", fileId);
-
-  }
-
-});
-
-
-// Movie search (temporary testing)
-bot.on("message", (msg) => {
-
-  if (!msg.text) return;
-
-  if (msg.text.startsWith("/")) return;
-
-
-  const movieName = msg.text.trim().toLowerCase();
-
-
-  const movie = movies.find(
-    (m) => m.name === movieName
-  );
-
-
-  if (movie) {
-
-    bot.sendVideo(
-      msg.chat.id,
-      movie.file_id
-    );
-
-  } else {
+  if (!videoId) {
 
     bot.sendMessage(
-      msg.chat.id,
-      "❌ Movie not found"
+      chatId,
+      "Welcome to CineXClub Bot"
     );
+
+    return;
+  }
+
+
+  try {
+
+    const member = await bot.getChatMember(
+      FORCE_CHANNEL,
+      chatId
+    );
+
+
+    if (
+      member.status === "left" ||
+      member.status === "kicked"
+    ) {
+
+      bot.sendMessage(
+        chatId,
+        "Please join our channel first.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Join Channel",
+                  url: "https://t.me/CineXClub"
+                }
+              ]
+            ]
+          }
+        }
+      );
+
+      return;
+    }
+
+
+    const movie = movies.find(
+      (m) => m.id === videoId
+    );
+
+
+    if (movie) {
+
+      bot.sendVideo(
+        chatId,
+        movie.file_id
+      );
+
+    } else {
+
+      bot.sendMessage(
+        chatId,
+        "Video not found."
+      );
+
+    }
+
+
+  } catch (err) {
+
+    console.log(err);
 
   }
 
 });
+
+
+
+// Private channel video save
+bot.on("channel_post", (msg) => {
+
+
+  if (msg.chat.id.toString() === STORAGE_CHANNEL) {
+
+
+    if (msg.video && msg.caption) {
+
+
+      const id = msg.caption
+      .trim()
+      .replace(/\s+/g, "");
+
+
+      movies.push({
+
+        id: id,
+        file_id: msg.video.file_id
+
+      });
+
+
+      console.log(
+        "Saved:",
+        id
+      );
+
+    }
+
+  }
+
+});
+
 
 
 // Error
-bot.on("polling_error", (err) => {
+bot.on("polling_error", (err)=>{
 
-  console.log("Polling Error:", err.message);
+  console.log(
+    "Polling Error:",
+    err.message
+  );
 
 });
+
 
 
 console.log("🤖 Bot Started");
@@ -101,16 +158,17 @@ console.log("🤖 Bot Started");
 const PORT = process.env.PORT || 10000;
 
 
-http.createServer((req, res) => {
+http.createServer((req,res)=>{
 
-  res.writeHead(200, {
-    "Content-Type": "text/plain"
-  });
+  res.writeHead(200);
 
-  res.end("Bot is running");
+  res.end("Bot Running");
 
-}).listen(PORT, () => {
+}).listen(PORT,()=>{
 
-  console.log(`🌐 Server running on ${PORT}`);
+  console.log(
+    "Server running",
+    PORT
+  );
 
 });

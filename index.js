@@ -1,38 +1,15 @@
 require("dotenv").config();
 
 const TelegramBot = require("node-telegram-bot-api");
-const { MongoClient } = require("mongodb");
 const http = require("http");
 
-
-// MongoDB
-const client = new MongoClient(process.env.MONGO_URI);
-
-let movies;
-
-
-// Connect Database
-async function connectDB() {
-  try {
-    await client.connect();
-
-    const db = client.db("CineXClub");
-    movies = db.collection("movies");
-
-    console.log("✅ MongoDB Connected");
-
-  } catch (err) {
-    console.log("❌ MongoDB Error:", err.message);
-  }
-}
-
-connectDB();
-
-
-// Telegram Bot
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
   polling: true
 });
+
+
+// Movies storage (Memory)
+let movies = [];
 
 
 // Start
@@ -47,24 +24,25 @@ bot.onText(/\/start/, (msg) => {
 
 
 // Channel video save
-bot.on("channel_post", async (msg) => {
+bot.on("channel_post", (msg) => {
 
   console.log("📩 Channel post received");
 
 
   if (msg.video && msg.caption) {
 
-    const movieName = msg.caption.trim();
+    const movieName = msg.caption.trim().toLowerCase();
     const fileId = msg.video.file_id;
 
 
-    await movies.insertOne({
-      name: movieName.toLowerCase(),
+    movies.push({
+      name: movieName,
       file_id: fileId
     });
 
 
     console.log("🎬 Saved:", movieName);
+    console.log("FILE ID:", fileId);
 
   }
 
@@ -72,7 +50,7 @@ bot.on("channel_post", async (msg) => {
 
 
 // Movie search
-bot.on("message", async (msg) => {
+bot.on("message", (msg) => {
 
   if (!msg.text) return;
 
@@ -82,41 +60,32 @@ bot.on("message", async (msg) => {
   const movieName = msg.text.trim().toLowerCase();
 
 
-  try {
-
-    const movie = await movies.findOne({
-      name: movieName
-    });
+  const movie = movies.find(
+    (m) => m.name === movieName
+  );
 
 
-    if (movie) {
+  if (movie) {
 
-      bot.sendVideo(
-        msg.chat.id,
-        movie.file_id
-      );
-
-
-    } else {
-
-      bot.sendMessage(
-        msg.chat.id,
-        "❌ Movie not found"
-      );
-
-    }
+    bot.sendVideo(
+      msg.chat.id,
+      movie.file_id
+    );
 
 
-  } catch (err) {
+  } else {
 
-    console.log(err);
+    bot.sendMessage(
+      msg.chat.id,
+      "❌ Movie not found"
+    );
 
   }
 
 });
 
 
-// Telegram Error
+// Error
 bot.on("polling_error", (err) => {
 
   console.log("Polling Error:", err.message);
@@ -124,13 +93,11 @@ bot.on("polling_error", (err) => {
 });
 
 
-
 console.log("🤖 Bot Started");
 
 
-// Render Server
+// Render server
 const PORT = process.env.PORT || 10000;
-
 
 http.createServer((req, res) => {
 

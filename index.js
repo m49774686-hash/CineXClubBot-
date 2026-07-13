@@ -17,16 +17,18 @@ bot.onText(/\/start/, (msg) => {
 
   bot.sendMessage(
     msg.chat.id,
-    "✅ CineXClub Bot Working!\n\nMovie name send cheyyandi."
+    "✅ CineXClub Bot Working!"
   );
 
 });
 
 
-// Channel video save
+// Channel video save + Channel ID
 bot.on("channel_post", (msg) => {
 
   console.log("📩 Channel post received");
+
+  console.log("CHANNEL ID:", msg.chat.id);
 
 
   if (msg.video && msg.caption) {
@@ -49,7 +51,7 @@ bot.on("channel_post", (msg) => {
 });
 
 
-// Movie search
+// Movie search (temporary testing)
 bot.on("message", (msg) => {
 
   if (!msg.text) return;
@@ -71,7 +73,6 @@ bot.on("message", (msg) => {
       msg.chat.id,
       movie.file_id
     );
-
 
   } else {
 
@@ -98,6 +99,7 @@ console.log("🤖 Bot Started");
 
 // Render server
 const PORT = process.env.PORT || 10000;
+
 
 http.createServer((req, res) => {
 

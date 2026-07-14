@@ -14,6 +14,12 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
     autoStart: true
   }
 });
+
+// ================================
+// DEFAULT THUMBNAIL (CineXClub Image)
+// ================================
+const DEFAULT_THUMBNAIL_ID = 'BQACAgUAAxkBAAIBRmpWpsTGvl7KG6XcMROHybiRlzHbAAL_JgACQRi4ViSRj2REFX81PQQ';
+
 bot.on("document", (msg) => {
   console.log("FILE ID:", msg.document.file_id);
 });
@@ -60,7 +66,7 @@ createTable();
 const FORCE_CHANNEL = "@CineXClub";
 const STORAGE_CHANNEL = "-1004426096451";
 const BOT_USERNAME = "CineXClubBot";
-const ADMIN_LINK = "https://t.me/CineXClubBot_Adminbot";
+const ADMIN_LINK = "https://t.me";
 
 // ================================
 // WELCOME MESSAGE
@@ -116,7 +122,8 @@ async function getVideo(movieId) {
     return null;
 
   }
-                }
+}
+
 // ================================
 // STORAGE CHANNEL HANDLER
 // ================================
@@ -144,7 +151,7 @@ bot.on("channel_post", async (msg) => {
   await saveVideo(movieId, fileId);
 
   // Generate Bot Link
-  const botLink = `https://t.me/${BOT_USERNAME}?start=${movieId}`;
+  const botLink = `https://t.me{BOT_USERNAME}?start=${movieId}`;
 
   // Send confirmation in storage channel
   await bot.sendMessage(
@@ -159,6 +166,7 @@ ${botLink}`
 
   console.log("✅ Saved:", movieId);
 });
+
 // ================================
 // FORCE JOIN CHECK
 // ================================
@@ -203,7 +211,7 @@ bot.onText(/\/start(.*)/, async (msg, match) => {
             [
               {
                 text: "📢 Join Channel",
-                url: "https://t.me/CineXClub"
+                url: "https://t.me"
               }
             ]
           ]
@@ -228,7 +236,7 @@ bot.onText(/\/start(.*)/, async (msg, match) => {
             [
               {
                 text: "📢 Join Channel",
-                url: "https://t.me/CineXClub"
+                url: "https://t.me"
               }
             ],
             [
@@ -248,6 +256,7 @@ bot.onText(/\/start(.*)/, async (msg, match) => {
   await sendVideo(chatId, movieId);
 
 });
+
 // ================================
 // VERIFY BUTTON
 // ================================
@@ -297,7 +306,7 @@ async function sendVideo(chatId, movieId) {
             [
               {
                 text: "🔎 Google Search",
-                url: `https://www.google.com/search?q=${encodeURIComponent(movieId + " movie")}`
+                url: `https://google.com{encodeURIComponent(movieId + " movie")}`
               }
             ],
             [
@@ -316,29 +325,25 @@ async function sendVideo(chatId, movieId) {
 
   try {
 
+    // మీ CineXClub ఇమేజ్ ఇక్కడ థంబ్‌నెయిల్‌గా యాడ్ చేయబడింది
     const sent = await bot.sendDocument(
       chatId,
       video.file_id,
       {
+        thumb: DEFAULT_THUMBNAIL_ID,
         caption: "🎬 Here is your file."
       }
     );
-    setTimeout(async () => {
-  try {
-    await bot.deleteMessage(chatId, sent.message_id);
-    console.log("🗑️ File deleted after 10 minutes");
-  } catch (err) {
-    console.log("Delete Error:", err.message);
-  }
-}, 10 * 60 * 1000);
 
+    // 10 నిమిషాల తర్వాత ఫైల్‌ను ఆటోమేటిక్‌గా డిలీట్ చేయడానికి
     setTimeout(async () => {
       try {
         await bot.deleteMessage(chatId, sent.message_id);
+        console.log("🗑️ File deleted after 10 minutes");
       } catch (err) {
         console.log("Delete Error:", err.message);
       }
-    }, 30 * 60 * 1000);
+    }, 10 * 60 * 1000);
 
   } catch (err) {
 
@@ -352,6 +357,7 @@ async function sendVideo(chatId, movieId) {
   }
 
 }
+
 // ================================
 // BOT EVENTS
 // ================================

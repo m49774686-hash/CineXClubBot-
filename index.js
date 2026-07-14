@@ -14,6 +14,9 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
     autoStart: true
   }
 });
+bot.on("document", (msg) => {
+  console.log("FILE ID:", msg.document.file_id);
+});
 
 // ================================
 // POSTGRESQL

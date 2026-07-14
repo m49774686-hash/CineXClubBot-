@@ -217,18 +217,10 @@ bot.on("channel_post", async (msg) => {
 
 
   // Accept Video or Document
-if (!msg.video && !msg.document) return;
 
-if (!msg.caption) {
-  console.log("❌ Caption missing");
-  return;
-}
+if (!msg.video) return;
 
-const movieId = msg.caption.trim().replace(/\s+/g, "");
-
-const file = msg.video || msg.document;
-const fileId = file.file_id;
-
+const fileId = msg.video.file_id;
 
   // Save to Database
   await saveVideo(
@@ -549,21 +541,14 @@ async function sendVideo(
   try {
 
 
-    const sent =
-      await bot.sendDocument(...)
-
-        chatId,
-
-        video.file_id,
-
-        {
-
-          caption:
-
-`🎬 Here is your movie
-
-⏳ This video will be deleted after 30 minutes.`
-
+.`
+const sent = await bot.sendDocument(
+  chatId,
+  video.file_id,
+  {
+    caption: `🎬 Here is your movie`
+  }
+);
         }
 
       );

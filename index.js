@@ -320,6 +320,14 @@ async function sendVideo(chatId, movieId) {
         caption: "🎬 Here is your file."
       }
     );
+    setTimeout(async () => {
+  try {
+    await bot.deleteMessage(chatId, sent.message_id);
+    console.log("🗑️ File deleted after 10 minutes");
+  } catch (err) {
+    console.log("Delete Error:", err.message);
+  }
+}, 10 * 60 * 1000);
 
     setTimeout(async () => {
       try {

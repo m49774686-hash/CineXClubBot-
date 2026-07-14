@@ -223,8 +223,6 @@ Here you can get movies instantly.
 
 🔎 Send movie ID to get video.
 
-Example:
-\`ironman1\`
                 `,
                 {
                     parse_mode:"Markdown"
@@ -396,26 +394,14 @@ async(msg)=>{
 
 
         // Only storage channel
-
-        if(
-            msg.chat.username &&
-            STORAGE_CHANNEL.replace("@","") !== msg.chat.username
-        ){
-
-            return;
-
-        }
+if (msg.chat.id.toString() !== STORAGE_CHANNEL.toString()) {
+    return;
+}
+        
 
 
 
         const fileId = getVideoFileId(msg);
-
-
-        if(!fileId){
-
-            return;
-
-        }
 
 
 

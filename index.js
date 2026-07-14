@@ -216,26 +216,18 @@ bot.on("channel_post", async (msg) => {
   ) return;
 
 
-  if (!msg.video) return;
+  // Accept Video or Document
+if (!msg.video && !msg.document) return;
 
+if (!msg.caption) {
+  console.log("❌ Caption missing");
+  return;
+}
 
-  if (!msg.caption) {
+const movieId = msg.caption.trim().replace(/\s+/g, "");
 
-    console.log("❌ Caption missing");
-
-    return;
-
-  }
-
-
-  const movieId =
-    msg.caption
-    .trim()
-    .replace(/\s+/g, "");
-
-
-  const fileId =
-    msg.video.file_id;
+const file = msg.video || msg.document;
+const fileId = file.file_id;
 
 
   // Save to Database
@@ -558,7 +550,7 @@ async function sendVideo(
 
 
     const sent =
-      await bot.sendVideo(
+      await bot.sendDocument(...)
 
         chatId,
 

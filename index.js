@@ -1,55 +1,125 @@
 require("dotenv").config();
 
 const TelegramBot = require("node-telegram-bot-api");
+const { Pool } = require("pg");
 const http = require("http");
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
-  polling: true
+  polling: {
+    interval: 300,
+    autoStart: true
+  }
 });
 
+// PostgreSQL Connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+// Create Table
+async function createTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS videos (
+        id SERIAL PRIMARY KEY,
+        movie_id TEXT UNIQUE NOT NULL,
+        file_id TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    console.log("✅ Database Connected");
+  } catch (err) {
+    console.log("Database Error:", err.message);
+  }
+}
+
+createTable();
 
 // Settings
 const FORCE_CHANNEL = "@CineXClub";
 const STORAGE_CHANNEL = "-1004426096451";
 
+// Welcome Message
+const WELCOME_TEXT = `
+🎬 Welcome to CineXClub Bot
 
-// Temporary video storage
-let videos = [];
+✅ Send your movie link to receive the video.
 
+⚡ Fast | Secure | Free
+`;
 
-// Save videos from private channel
-bot.on("channel_post", (msg) => {
+// Save Video to Database
+async function saveVideo(movieId, fileId) {
+  try {
+    await pool.query(
+      `INSERT INTO videos(movie_id,file_id)
+       VALUES($1,$2)
+       ON CONFLICT(movie_id)
+       DO UPDATE SET file_id=$2`,
+      [movieId, fileId]
+    );
 
-  if (msg.chat.id.toString() === STORAGE_CHANNEL) {
+    console.log("✅ Saved:", movieId);
 
-    console.log("📩 Storage channel post");
-
-
-    if (msg.video && msg.caption) {
-
-      const videoId = msg.caption
-        .trim()
-        .replace(/\s+/g, "");
-
-
-      videos.push({
-        id: videoId,
-        file_id: msg.video.file_id
-      });
-
-
-      console.log("✅ Saved:", videoId);
-      console.log("FILE ID:", msg.video.file_id);
-
-    }
-
+  } catch (err) {
+    console.log(err.message);
   }
+}
+
+// Get Video
+async function getVideo(movieId) {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM videos WHERE movie_id = $1",
+      [movieId]
+    );
+
+    return result.rows[0];
+
+  } catch (err) {
+    console.log(err.message);
+    return null;
+  }
+}
+// ================================
+// STORAGE CHANNEL HANDLER
+// ================================
+
+bot.on("channel_post", async (msg) => {
+
+  if (msg.chat.id.toString() !== STORAGE_CHANNEL) return;
+
+  console.log("📥 New post received");
+
+  if (!msg.video) return;
+
+  if (!msg.caption) {
+    console.log("❌ Caption missing");
+    return;
+  }
+
+  const movieId = msg.caption
+    .trim()
+    .replace(/\s+/g, "");
+
+  const fileId = msg.video.file_id;
+
+  await saveVideo(movieId, fileId);
+
+  console.log("🎬 Movie ID :", movieId);
+  console.log("🆔 File ID :", fileId);
 
 });
 
 
+// ================================
+// FORCE JOIN CHECK
+// ================================
 
-// Check channel join
 async function checkJoin(userId) {
 
   try {
@@ -59,248 +129,247 @@ async function checkJoin(userId) {
       userId
     );
 
-
     return (
       member.status === "member" ||
       member.status === "administrator" ||
       member.status === "creator"
     );
 
-
   } catch (err) {
 
-    console.log("Join error:", err.message);
+    console.log("Join Check Error:", err.message);
+
     return false;
 
   }
 
-}
+       }
+// ================================
+// /START HANDLER
+// ================================
 
-
-
-// /start handler
 bot.onText(/\/start(.*)/, async (msg, match) => {
 
-
   const chatId = msg.chat.id;
+  const movieId = match[1].trim();
 
-  const videoId = match[1].trim();
-
-
-
-  if (!videoId) {
-
-    bot.sendMessage(
-      chatId,
-      "🎬 Welcome to CineXClub Bot"
-    );
+  // Normal /start
+  if (!movieId) {
+    await bot.sendMessage(chatId, WELCOME_TEXT, {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "📢 Join Channel",
+              url: "https://t.me/CineXClub"
+            }
+          ]
+        ]
+      }
+    });
 
     return;
-
   }
 
-
-
+  // Force Join Check
   const joined = await checkJoin(chatId);
-
-
 
   if (!joined) {
 
-
-    bot.sendMessage(
+    await bot.sendMessage(
       chatId,
-      "Please join our channel first.",
+      "⚠️ Please join our channel first to access the movie.",
       {
         reply_markup: {
           inline_keyboard: [
-
             [
               {
-                text: "Join Channel",
+                text: "📢 Join Channel",
                 url: "https://t.me/CineXClub"
               }
             ],
-
             [
               {
-                text: "I've Joined ✅",
-                callback_data: "verify_" + videoId
+                text: "✅ I've Joined",
+                callback_data: "verify_" + movieId
               }
             ]
-
           ]
         }
       }
     );
 
-
     return;
-
   }
 
-
-
-  sendVideo(chatId, videoId);
-
+  // User joined → send movie
+  await sendVideo(chatId, movieId);
 
 });
 
 
+// ================================
+// VERIFY BUTTON
+// ================================
 
-
-// Verify button
 bot.on("callback_query", async (query) => {
-
 
   const chatId = query.message.chat.id;
 
+  if (!query.data.startsWith("verify_")) return;
 
-  if (query.data.startsWith("verify_")) {
+  const movieId = query.data.replace("verify_", "");
 
+  const joined = await checkJoin(chatId);
 
-    const videoId = query.data.replace(
-      "verify_",
-      ""
-    );
+  if (!joined) {
 
-
-    const joined = await checkJoin(chatId);
-
-
-
-    if (!joined) {
-
-
-      bot.answerCallbackQuery(
-        query.id,
-        {
-          text: "Join channel first"
-        }
-      );
-
-
-      return;
-
-    }
-
-
-
-    bot.answerCallbackQuery(query.id);
-
-
-    sendVideo(
-      chatId,
-      videoId
-    );
-
-
-  }
-
-});
-
-
-
-
-// Send video + delete after 30 minutes
-function sendVideo(chatId, videoId) {
-
-
-  const video = videos.find(
-    v => v.id === videoId
-  );
-
-
-  if (!video) {
-
-
-    bot.sendMessage(
-      chatId,
-      "❌ Video not found"
-    );
-
+    await bot.answerCallbackQuery(query.id, {
+      text: "❌ Please join the channel first.",
+      show_alert: true
+    });
 
     return;
-
   }
 
+  await bot.answerCallbackQuery(query.id);
 
+  await sendVideo(chatId, movieId);
 
-  bot.sendVideo(
-    chatId,
-    video.file_id,
-    {
-      caption: "🎬 Here is your video\n\n⏳ This video will be deleted after 30 minutes."
-    }
+});
+// ================================
+// SEND VIDEO
+// ================================
 
-  ).then((sentMsg)=>{
+async function sendVideo(chatId, movieId) {
 
+  const video = await getVideo(movieId);
 
-    setTimeout(()=>{
+  // Video not found
+  if (!video) {
 
+    await bot.sendMessage(
+      chatId,
+      "❌ Video not in our database.\n\n🔍 You can search it on Google.",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "🔎 Google Search",
+                url: `https://www.google.com/search?q=${encodeURIComponent(movieId + " movie")}`
+              }
+            ]
+          ]
+        }
+      }
+    );
 
-      bot.deleteMessage(
-        chatId,
-        sentMsg.message_id
-      )
-      .then(()=>{
+    return;
+  }
+
+  try {
+
+    const sent = await bot.sendVideo(
+      chatId,
+      video.file_id,
+      {
+        caption:
+`🎬 Here is your movie
+
+⏳ This message will be deleted after 30 minutes.`
+      }
+    );
+
+    // Delete after 30 minutes
+    setTimeout(async () => {
+
+      try {
+
+        await bot.deleteMessage(
+          chatId,
+          sent.message_id
+        );
 
         console.log("🗑️ Video deleted");
 
-      })
-      .catch(err=>{
+      } catch (err) {
 
         console.log(
-          "Delete error:",
+          "Delete Error:",
           err.message
         );
 
-      });
-
+      }
 
     }, 30 * 60 * 1000);
 
+  } catch (err) {
 
+    console.log(
+      "Send Video Error:",
+      err.message
+    );
 
-  });
+    await bot.sendMessage(
+      chatId,
+      "❌ Unable to send video."
+    );
 
+  }
 
 }
+// ================================
+// BOT EVENTS
+// ================================
 
+bot.on("polling_error", (err) => {
+  console.log("❌ Polling Error:", err.message);
+});
 
-
-// Error
-bot.on("polling_error",(err)=>{
-
-  console.log(
-    "Polling Error:",
-    err.message
-  );
-
+bot.on("webhook_error", (err) => {
+  console.log("❌ Webhook Error:", err.message);
 });
 
 
+// ================================
+// GLOBAL ERROR HANDLING
+// ================================
 
-console.log("🤖 Bot Started");
+process.on("uncaughtException", (err) => {
+  console.log("❌ Uncaught Exception:");
+  console.log(err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.log("❌ Unhandled Rejection:");
+  console.log(reason);
+});
 
 
+// ================================
+// HTTP SERVER (Render Health Check)
+// ================================
 
-// Render server
 const PORT = process.env.PORT || 10000;
 
+http.createServer((req, res) => {
 
-http.createServer((req,res)=>{
+  res.writeHead(200, {
+    "Content-Type": "text/plain"
+  });
 
-  res.writeHead(200);
+  res.end("✅ CineXClub Bot Running");
 
-  res.end("Bot Running");
+}).listen(PORT, () => {
 
-
-}).listen(PORT,()=>{
-
-  console.log(
-    "🌐 Server running on",
-    PORT
-  );
+  console.log(`🌐 Server running on port ${PORT}`);
 
 });
+
+
+// ================================
+// BOT STARTED
+// ================================
+
+console.log("🤖 CineXClub Bot Started Successfully");

@@ -24,7 +24,8 @@ const STORAGE_CHANNEL = "-1004426096451";
 const BOT_USERNAME = "CineXClubBot";
 const ADMIN_LINK = "https://t.me/CineXClub_AdminBot";
 
-const AUTO_DELETE_TIME = 10 * 60 * 1000; // 10 Minutes
+const AUTO_DELETE_TIME = 30 * 60 * 1000; // 30 Minutes
+
 
 // ================================
 // POSTGRESQL
@@ -37,6 +38,17 @@ const pool = new Pool({
   }
 });
 
+pool.connect()
+  .then((client) => {
+    console.log("✅ PostgreSQL Connected");
+    client.release();
+    createTable();
+  })
+  .catch((err) => {
+    console.log("❌ PostgreSQL Connection Failed");
+    console.log(err);
+  });
+
 // ================================
 // CREATE TABLE
 // ================================
@@ -45,7 +57,7 @@ async function createTable() {
   try {
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS videos(
+      CREATE TABLE IF NOT EXISTS videos (
         id SERIAL PRIMARY KEY,
         movie_id TEXT UNIQUE NOT NULL,
         file_id TEXT NOT NULL,
@@ -53,12 +65,12 @@ async function createTable() {
       );
     `);
 
-    console.log("✅ PostgreSQL Connected");
+    console.log("✅ Table Ready");
 
   } catch (err) {
 
-    console.log("❌ Database Error");
-    console.log(err.message);
+    console.log("❌ Create Table Error");
+    console.log(err);
 
   }
 }

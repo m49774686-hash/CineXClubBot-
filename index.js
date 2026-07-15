@@ -534,15 +534,13 @@ return data;
 // STORAGE CHANNEL UPLOAD
 // ================================
 
+bot.on("channel_post", async(msg)=>{
 
-bot.on(
-"channel_post",
-async(msg)=>{
-
-    console.log("🔥 CHANNEL POST RECEIVED");
+console.log("🔥 CHANNEL POST RECEIVED");
 console.log(msg.chat.id);
 
 });
+
 
 
 if(

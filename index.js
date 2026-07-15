@@ -84,32 +84,39 @@ console.log(err);
 // CREATE TABLE
 // ================================
 
-async function createTable(){
+async function createTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS videos (
+        id SERIAL PRIMARY KEY,
 
-try{
+        type TEXT NOT NULL DEFAULT 'movie',
 
+        movie_id TEXT UNIQUE,
+        series_id TEXT,
+        season TEXT,
+        episode TEXT,
 
-await pool.query(`
+        title TEXT NOT NULL,
+        year TEXT,
+        quality TEXT,
+        audio TEXT,
+        size TEXT,
+        language TEXT,
 
-CREATE TABLE IF NOT EXISTS videos(
+        file_id TEXT NOT NULL,
 
-id SERIAL PRIMARY KEY,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-type TEXT,
+    console.log("✅ Database Ready");
+  } catch (err) {
+    console.log("❌ Database Setup Error");
+    console.log(err);
+  }
+}
 
-movie_id TEXT,
-
-series_id TEXT,
-
-episode TEXT,
-
-file_id TEXT NOT NULL,
-
-created_at TIMESTAMP DEFAULT NOW()
-
-);
-
-`);
 
 
 

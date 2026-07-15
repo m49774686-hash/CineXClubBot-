@@ -97,49 +97,33 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
 `);
 
-console.log(
-"✅ Database Ready"
-);
+
+await pool.query(`
+
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS season TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS title TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS year TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS quality TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS audio TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS size TEXT;
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS language TEXT;
+
+`);
+
+
+console.log("✅ Database Ready");
 
 
 }
 
 catch(err){
 
-console.log(
-"❌ Database Setup Error"
-);
-
+console.log("❌ Database Setup Error");
 console.log(err);
 
 }
 
 }
-
-
-pool.connect()
-
-.then(client=>{
-
-console.log(
-"✅ PostgreSQL Connected"
-);
-
-client.release();
-
-createTable();
-
-})
-
-.catch(err=>{
-
-console.log(
-"❌ PostgreSQL Connection Failed"
-);
-
-console.log(err);
-
-});
 
 
 // ================================

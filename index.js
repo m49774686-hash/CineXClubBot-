@@ -73,7 +73,7 @@ createTable();
 
 .catch(err=>{
 
-console.log("❌ PostgreSQL Error");
+console.log("❌ PostgreSQL Connection Error");
 
 console.log(err);
 
@@ -83,7 +83,7 @@ console.log(err);
 
 
 // ================================
-// CREATE TABLE
+// CREATE / FIX TABLE
 // ================================
 
 async function createTable(){
@@ -99,7 +99,7 @@ id SERIAL PRIMARY KEY,
 
 type TEXT,
 
-movie_id TEXT UNIQUE,
+movie_id TEXT,
 
 series_id TEXT,
 
@@ -114,12 +114,15 @@ created_at TIMESTAMP DEFAULT NOW()
 `);
 
 
-// OLD DATABASE FIX
+// Fix old database
 
 await pool.query(`
 
 ALTER TABLE videos
 ADD COLUMN IF NOT EXISTS type TEXT;
+
+ALTER TABLE videos
+ADD COLUMN IF NOT EXISTS movie_id TEXT;
 
 ALTER TABLE videos
 ADD COLUMN IF NOT EXISTS series_id TEXT;
@@ -137,7 +140,7 @@ console.log("✅ Database Ready");
 
 catch(err){
 
-console.log("❌ Database Error");
+console.log("❌ Database Setup Error");
 
 console.log(err);
 
@@ -149,7 +152,7 @@ console.log(err);
 
 
 // ================================
-// WELCOME MESSAGE
+// WELCOME
 // ================================
 
 const WELCOME_TEXT = `
@@ -177,21 +180,16 @@ async function saveMovie(movieId,fileId){
 
 try{
 
-
 await pool.query(
 
 `
-
 INSERT INTO videos
 (type,movie_id,file_id)
 
 VALUES
 ('movie',$1,$2)
 
-ON CONFLICT(movie_id)
-
-DO UPDATE SET file_id=EXCLUDED.file_id
-
+ON CONFLICT DO NOTHING
 `,
 
 [
@@ -234,17 +232,14 @@ async function saveEpisode(seriesId,episode,fileId){
 
 try{
 
-
 await pool.query(
 
 `
-
 INSERT INTO videos
 (type,series_id,episode,file_id)
 
 VALUES
 ('series',$1,$2,$3)
-
 `,
 
 [
@@ -282,7 +277,7 @@ console.log(err);
 
 
 // ================================
-// STORAGE CHANNEL HANDLER
+// STORAGE CHANNEL UPLOAD
 // ================================
 
 bot.on(
@@ -318,38 +313,13 @@ return;
 
 
 
-// ================================
-// MKV MULTI AUDIO
-// UPLOAD AS DOCUMENT
-// ================================
+// File ID
 
-
-let fileId;
-
-
-if(msg.document){
-
-fileId =
-msg.document.file_id;
-
-}
-else{
-
-fileId =
+const fileId = msg.document
+?
+msg.document.file_id
+:
 msg.video.file_id;
-
-}
-
-
-
-console.log(
-"📥 File Received"
-);
-
-console.log(
-"File ID:",
-fileId
-);
 
 
 
@@ -358,14 +328,18 @@ msg.caption.trim();
 
 
 
+console.log("📥 File Received");
+console.log("File ID:",fileId);
+
+
+
 
 // ================================
-// SERIES
+// SERIES UPLOAD
 //
 // SeriesID: strangerthings_s01
 // Episode: E01
 // ================================
-
 
 if(
 
@@ -416,7 +390,6 @@ await bot.sendMessage(
 
 msg.chat.id,
 
-
 `✅ Episode Saved Successfully
 
 
@@ -443,9 +416,8 @@ return;
 
 
 
-
 // ================================
-// MOVIE
+// MOVIE UPLOAD
 //
 // MovieID: ironman1
 // ================================
@@ -462,25 +434,15 @@ text.match(
 
 
 
-if(match){
-
-movieId =
-match[1];
-
-}
-
-else{
-
-movieId =
+movieId = match
+?
+match[1]
+:
 text;
 
-}
 
 
-
-movieId =
-
-movieId
+movieId = movieId
 .trim()
 .replace(/\s+/g,"")
 .toLowerCase();
@@ -507,12 +469,10 @@ await bot.sendMessage(
 
 msg.chat.id,
 
-
 `✅ File Saved Successfully
 
 
 🎬 Movie ID:
-
 ${movieId}
 
 
@@ -532,13 +492,11 @@ async function checkJoin(userId){
 
 try{
 
-
 const member =
 await bot.getChatMember(
 FORCE_CHANNEL,
 userId
 );
-
 
 
 return (
@@ -551,7 +509,6 @@ member.status === "creator"
 
 
 }
-
 catch(err){
 
 console.log(
@@ -568,36 +525,42 @@ return false;
 
 
 
+
 // ================================
 // GET MOVIE
 // ================================
 
 async function getMovie(movieId){
 
-const result =
+try{
 
-await pool.query(
+const result = await pool.query(
 
 `
-
 SELECT *
-
 FROM videos
-
 WHERE type='movie'
-
-AND LOWER(movie_id)=$1
-
+AND LOWER(TRIM(movie_id))=$1
 `,
 
 [
-movieId.toLowerCase()
+movieId.trim().toLowerCase()
 ]
 
 );
 
 
 return result.rows[0] || null;
+
+
+}
+catch(err){
+
+console.log(err);
+
+return null;
+
+}
 
 }
 
@@ -606,37 +569,55 @@ return result.rows[0] || null;
 
 
 // ================================
-// GET SERIES
+// GET SERIES (FIX)
 // ================================
 
 async function getSeries(seriesId){
 
-const result =
+try{
 
-await pool.query(
+const result = await pool.query(
 
 `
-
 SELECT *
-
 FROM videos
-
 WHERE type='series'
-
-AND LOWER(series_id)=$1
-
+AND LOWER(TRIM(series_id))=$1
 ORDER BY id ASC
-
 `,
 
 [
-seriesId.toLowerCase()
+seriesId.trim().toLowerCase()
 ]
 
 );
 
 
+console.log(
+"🔎 Series Search:",
+seriesId
+);
+
+console.log(
+"📺 Episodes:",
+result.rows
+);
+
+
 return result.rows;
+
+
+}
+catch(err){
+
+console.log(
+"❌ Get Series Error",
+err
+);
+
+return [];
+
+}
 
 }
 
@@ -667,8 +648,6 @@ const id =
 
 
 
-
-// WELCOME
 
 if(!id){
 
@@ -709,18 +688,8 @@ url:"https://t.me/CineXClub"
 
 
 
-console.log(
-"🎬 Requested:",
-id
-);
-
-
-
-
-// FORCE JOIN
 
 const joined =
-
 await checkJoin(chatId);
 
 
@@ -733,7 +702,6 @@ return bot.sendMessage(
 chatId,
 
 "⚠️ Please join our channel first.",
-
 
 {
 
@@ -784,11 +752,8 @@ callback_data:`verify_${id}`
 
 
 await sendRequest(
-
 chatId,
-
 id
-
 );
 
 
@@ -815,15 +780,13 @@ query.data;
 
 
 
-// VERIFY JOIN
 
-if(
-data.startsWith("verify_")
-){
+// VERIFY
+
+if(data.startsWith("verify_")){
 
 
 const id =
-
 data.replace(
 "verify_",
 ""
@@ -832,7 +795,6 @@ data.replace(
 
 
 const joined =
-
 await checkJoin(
 query.message.chat.id
 );
@@ -864,7 +826,6 @@ query.id
 );
 
 
-
 return sendRequest(
 
 query.message.chat.id,
@@ -873,24 +834,18 @@ id
 
 );
 
-
 }
 
 
 
 
-// EPISODE SELECT
 
+// EPISODE BUTTON
 
-if(
-
-data.startsWith("episode_")
-
-){
+if(data.startsWith("episode_")){
 
 
 const episodeId =
-
 data.replace(
 "episode_",
 ""
@@ -899,15 +854,12 @@ data.replace(
 
 
 const result =
-
 await pool.query(
 
 `
 
 SELECT *
-
 FROM videos
-
 WHERE id=$1
 
 `,
@@ -922,7 +874,6 @@ episodeId
 
 if(!result.rows[0]){
 
-
 return bot.answerCallbackQuery(
 
 query.id,
@@ -936,7 +887,6 @@ show_alert:true
 }
 
 );
-
 
 }
 
@@ -970,7 +920,7 @@ result.rows[0].episode
 async function sendRequest(chatId,id){
 
 
-// MOVIE CHECK
+// MOVIE
 
 const movie = await getMovie(id);
 
@@ -987,7 +937,7 @@ id
 
 
 
-// SERIES CHECK
+// SERIES
 
 const episodes = await getSeries(id);
 
@@ -1034,13 +984,14 @@ inline_keyboard:buttons
 
 
 
+
 // NOT FOUND
 
 return bot.sendMessage(
 
 chatId,
 
-"❌ Movie not found in our database.",
+"❌ Video not found in our database.",
 
 {
 
@@ -1092,7 +1043,7 @@ url:ADMIN_LINK
 
 
 // ================================
-// SEND FILE (FIXED)
+// SEND FILE
 // ================================
 
 async function sendFile(chatId,fileId,name){
@@ -1100,8 +1051,10 @@ async function sendFile(chatId,fileId,name){
 try{
 
 
-console.log("📤 Sending File");
-console.log(fileId);
+console.log(
+"📤 Sending File ID:",
+fileId
+);
 
 
 
@@ -1146,7 +1099,6 @@ console.log(
 
 
 
-
 setTimeout(async()=>{
 
 
@@ -1168,7 +1120,6 @@ console.log(
 
 
 }
-
 catch(err){
 
 console.log(
@@ -1186,12 +1137,11 @@ err.message
 }
 
 
-
 catch(err){
 
 
 console.log(
-"❌ SEND DOCUMENT ERROR"
+"❌ SEND FILE ERROR"
 );
 
 
@@ -1268,7 +1218,6 @@ console.log(err);
 
 
 
-
 // ================================
 // RENDER KEEP ALIVE
 // ================================
@@ -1277,20 +1226,15 @@ const PORT =
 process.env.PORT || 10000;
 
 
-
 http.createServer(
 
 (req,res)=>{
 
-
 res.writeHead(
-
 200,
-
 {
 "Content-Type":"text/plain"
 }
-
 );
 
 
@@ -1321,7 +1265,7 @@ console.log(
 
 
 // ================================
-// BOT START LOG
+// START LOG
 // ================================
 
 console.clear();
@@ -1337,25 +1281,11 @@ console.log(`
 `);
 
 
-
 console.log(
 "🤖 Bot:",
 BOT_USERNAME
 );
 
-
 console.log(
-"📢 Force:",
-FORCE_CHANNEL
-);
-
-
-console.log(
-"💾 Storage:",
-STORAGE_CHANNEL
-);
-
-
-console.log(
-"🚀 Bot Ready"
+"🚀 Bot Ready..."
 );

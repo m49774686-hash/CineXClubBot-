@@ -183,17 +183,14 @@ async function saveMovie(movieId,fileId){
 try{
 
 await pool.query(
-
-`
 const query = `
 INSERT INTO videos
 (movie_id, file_id)
 VALUES ($1, $2)
 ON CONFLICT (movie_id)
-DO UPDATE SET file_id = EXCLUDED.file_id
+DO NOTHING
 `;
-ON CONFLICT DO NOTHING
-`,
+
 
 [
 movieId.toLowerCase(),

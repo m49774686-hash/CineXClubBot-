@@ -612,17 +612,26 @@ file_id
 
 
 
+
+  const seriesLink =
+`https://t.me/${BOT_USERNAME}?start=${series_id.toLowerCase()}`;
+
+
 await bot.sendMessage(
 
 msg.chat.id,
 
-`✅ Episode Saved
+`✅ Episode Saved Successfully
 
 📺 Series:
 ${series_id}
 
 🎬 Episode:
 ${episode}
+
+🔗 Series Link:
+
+${seriesLink}
 
 `
 

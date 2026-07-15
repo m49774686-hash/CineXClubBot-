@@ -185,12 +185,13 @@ try{
 await pool.query(
 
 `
+const query = `
 INSERT INTO videos
-(type,movie_id,file_id)
-
-VALUES
-('movie',$1,$2)
-
+(movie_id, file_id)
+VALUES ($1, $2)
+ON CONFLICT (movie_id)
+DO UPDATE SET file_id = EXCLUDED.file_id
+`;
 ON CONFLICT DO NOTHING
 `,
 

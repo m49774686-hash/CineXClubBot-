@@ -1,6 +1,6 @@
 require("dotenv").config();
 
-const TelegramBot = require("node-telegram-bot-api");
+const TelegramBot = require("node-telegram-api");
 const { Pool } = require("pg");
 const http = require("http");
 
@@ -10,13 +10,13 @@ const http = require("http");
 // ================================
 
 const bot = new TelegramBot(
-    process.env.BOT_TOKEN,
-    {
-        polling:{
-            interval:300,
-            autoStart:true
-        }
-    }
+process.env.BOT_TOKEN,
+{
+polling:{
+interval:300,
+autoStart:true
+}
+}
 );
 
 
@@ -44,15 +44,14 @@ const AUTO_DELETE_TIME =
 
 const pool = new Pool({
 
-    connectionString:
-    process.env.DATABASE_URL,
+connectionString:
+process.env.DATABASE_URL,
 
-    ssl:{
-        rejectUnauthorized:false
-    }
+ssl:{
+rejectUnauthorized:false
+}
 
 });
-
 
 
 
@@ -63,7 +62,6 @@ const pool = new Pool({
 async function createTable(){
 
 try{
-
 
 await pool.query(`
 
@@ -102,44 +100,7 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 `);
 
 
-
-// Add missing columns
-
 await pool.query(`
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'movie';
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS movie_id TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS series_id TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS season TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS episode TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS title TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS year TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS quality TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS audio TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS size TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS language TEXT;
-
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS file_id TEXT;
-
-`);
-
-
-
-// Fix movie duplicate issue
-
-await pool.query(`
-
-DROP INDEX IF EXISTS movie_id_unique_index;
 
 CREATE UNIQUE INDEX IF NOT EXISTS movie_id_unique_index
 
@@ -150,7 +111,6 @@ WHERE movie_id IS NOT NULL;
 `);
 
 
-
 console.log("✅ Database Ready");
 
 
@@ -158,8 +118,7 @@ console.log("✅ Database Ready");
 
 catch(err){
 
-console.log("❌ Database Setup Error");
-
+console.log("❌ Database Error");
 console.log(err);
 
 }
@@ -168,8 +127,10 @@ console.log(err);
 
 
 
+// ================================
+// DATABASE CONNECT
+// ================================
 
-// Database connect
 
 pool.connect()
 
@@ -186,7 +147,6 @@ createTable();
 .catch(err=>{
 
 console.log("❌ PostgreSQL Connection Error");
-
 console.log(err);
 
 });
@@ -194,10 +154,10 @@ console.log(err);
 
 
 
+// ================================
+// KEEP ALIVE
+// ================================
 
-// ================================
-// KEEP ALIVE SERVER
-// ================================
 
 const PORT =
 process.env.PORT || 10000;
@@ -205,11 +165,8 @@ process.env.PORT || 10000;
 
 http.createServer((req,res)=>{
 
-
 res.writeHead(200,{
-
 "Content-Type":"text/plain"
-
 });
 
 
@@ -220,12 +177,10 @@ res.end(
 
 }).listen(PORT,()=>{
 
-
 console.log(
 "🌐 Server Running:",
 PORT
 );
-
 
 });
 
@@ -257,97 +212,17 @@ console.log(
 "🚀 Bot Ready..."
 );
 
+
+
 // ================================
 // SAVE MOVIE
 // ================================
 
-async function saveMovie(data){
 
-try{
-
-
-await pool.query(`
-
-INSERT INTO videos
-(
-type,
-movie_id,
-title,
-year,
-quality,
-audio,
-size,
-language,
-file_id
-)
-
-VALUES
-(
-'movie',
-$1,$2,$3,$4,$5,$6,$7,$8
-)
-
-ON CONFLICT(movie_id)
-
-DO UPDATE SET
-
-file_id=EXCLUDED.file_id,
-title=EXCLUDED.title,
-year=EXCLUDED.year,
-quality=EXCLUDED.quality,
-audio=EXCLUDED.audio,
-size=EXCLUDED.size,
-language=EXCLUDED.language
-
-`,
-
-[
-
-data.movie_id,
-data.title,
-data.year,
-data.quality,
-data.audio,
-data.size,
-data.language,
-data.file_id
-
-]);
-
-
-console.log(
-"✅ Movie Saved:",
-data.movie_id
-);
-
-
-return true;
-
-
-}
-
-catch(err){
-
-console.log(
-"❌ Movie Save Error"
-);
-
-console.log(err);
-
-return false;
-
-}
-
-}
-
-
-
-
-
+async function saveMovie(data
 // ================================
 // SAVE SERIES EPISODE
 // ================================
-
 
 async function saveEpisode(data){
 
@@ -357,6 +232,7 @@ try{
 await pool.query(`
 
 INSERT INTO videos
+
 (
 type,
 series_id,
@@ -371,15 +247,15 @@ file_id
 )
 
 VALUES
+
 (
 'series',
-$1,$2,$3,$4,$5,$6,$7,$8,$9
+$1,$2,$3,$4,$5,$6,$7,$8
 )
 
 `,
 
 [
-
 data.series_id,
 data.season,
 data.episode,
@@ -389,16 +265,15 @@ data.audio,
 data.size,
 data.language,
 data.file_id
+]
 
-]);
+);
 
 
 console.log(
-
 "✅ Episode Saved:",
 data.series_id,
 data.episode
-
 );
 
 
@@ -424,13 +299,11 @@ return false;
 
 
 
-
 // ================================
 // METADATA
 // ================================
 
 function getMeta(text){
-
 
 let data={
 
@@ -443,37 +316,28 @@ language:"Multi Audio"
 };
 
 
-
 // YEAR
 
 let year =
 text.match(/\b(19|20)\d{2}\b/);
 
-
 if(year)
-
 data.year=year[0];
 
 
-
-
 // QUALITY
-
 
 if(/2160p/i.test(text))
 
 data.quality="2160p";
 
-
 else if(/1080p/i.test(text))
 
 data.quality="1080p";
 
-
 else if(/720p/i.test(text))
 
 data.quality="720p";
-
 
 else if(/480p/i.test(text))
 
@@ -481,24 +345,19 @@ data.quality="480p";
 
 
 
-
 // AUDIO
-
 
 if(/Telugu/i.test(text))
 
 data.audio="Telugu";
 
-
 else if(/Hindi/i.test(text))
 
 data.audio="Hindi";
 
-
 else if(/Tamil/i.test(text))
 
 data.audio="Tamil";
-
 
 else if(/Malayalam/i.test(text))
 
@@ -506,9 +365,7 @@ data.audio="Malayalam";
 
 
 
-
 // SIZE
-
 
 let size =
 text.match(/\d+(\.\d+)?\s?(GB|MB)/i);
@@ -531,15 +388,19 @@ return data;
 
 
 // ================================
-// STORAGE CHANNEL UPLOAD
+// STORAGE CHANNEL UPLOAD FIXED
 // ================================
+
 
 bot.on("channel_post", async(msg)=>{
 
-console.log("🔥 CHANNEL POST RECEIVED");
-console.log(msg.chat.id);
 
-});
+console.log("🔥 CHANNEL POST RECEIVED");
+
+console.log(
+"CHANNEL ID:",
+msg.chat.id
+);
 
 
 
@@ -610,7 +471,6 @@ if(
 ){
 
 
-
 const series_id =
 
 caption.match(
@@ -648,7 +508,6 @@ caption.match(
 .trim();
 
 }
-
 
 
 
@@ -691,14 +550,16 @@ await bot.sendMessage(
 
 msg.chat.id,
 
+`✅ Episode Saved Successfully
 
-`✅ Episode Saved
 
 📺 Series:
 ${series_id}
 
+
 🎬 Episode:
 ${episode}
+
 
 🔗 Link:
 
@@ -713,6 +574,7 @@ ${link}`
 
 return;
 
+
 }
 
 
@@ -724,6 +586,7 @@ return;
 
 
 let movie_id;
+
 
 
 if(/MovieID:/i.test(caption)){
@@ -741,11 +604,9 @@ caption.match(
 else{
 
 
-movie_id=caption;
-
+movie_id = caption;
 
 }
-
 
 
 
@@ -798,11 +659,12 @@ await bot.sendMessage(
 
 msg.chat.id,
 
+`✅ Movie Saved Successfully
 
-`✅ Movie Saved
 
 🎬 ID:
 ${movie_id}
+
 
 🔗 Link:
 
@@ -816,7 +678,6 @@ ${link}`
 
 
 });
-
 // ================================
 // FORCE JOIN CHECK
 // ================================
@@ -825,17 +686,22 @@ async function checkJoin(userId){
 
 try{
 
+
 const member =
+
 await bot.getChatMember(
 FORCE_CHANNEL,
 userId
 );
 
 
+
 return (
 
 member.status === "member" ||
+
 member.status === "administrator" ||
+
 member.status === "creator"
 
 );
@@ -855,6 +721,7 @@ return false;
 }
 
 }
+
 
 
 
@@ -911,6 +778,7 @@ console.log(
 err
 );
 
+
 return null;
 
 }
@@ -944,9 +812,7 @@ AND LOWER(TRIM(series_id))=$1
 
 ORDER BY id ASC
 
-`
-
-,
+`,
 
 [
 id.toLowerCase().trim()
@@ -975,6 +841,7 @@ console.log(
 err
 );
 
+
 return [];
 
 }
@@ -989,6 +856,7 @@ return [];
 // START COMMAND
 // ================================
 
+
 bot.onText(
 
 /\/start(?:\s+(.+))?/,
@@ -998,6 +866,7 @@ async(msg,match)=>{
 
 const chatId =
 msg.chat.id;
+
 
 
 const id =
@@ -1013,13 +882,13 @@ const id =
 
 // FIRST OPEN
 
+
 if(!id){
 
 
 return bot.sendMessage(
 
 chatId,
-
 
 `
 
@@ -1030,6 +899,7 @@ chatId,
 
 
 🍿 Movies & Series
+
 
 ⚡ Fast Download
 
@@ -1053,7 +923,6 @@ reply_markup:{
 
 inline_keyboard:[
 
-
 [
 
 {
@@ -1065,7 +934,6 @@ url:"https://t.me/CineXClub"
 }
 
 ]
-
 
 ]
 
@@ -1083,6 +951,7 @@ url:"https://t.me/CineXClub"
 
 
 // FORCE JOIN
+
 
 const joined =
 
@@ -1148,7 +1017,6 @@ callback_data:`verify_${id}`
 
 
 
-
 return sendRequest(
 
 chatId,
@@ -1158,7 +1026,9 @@ id
 );
 
 
+
 });
+
 
 
 
@@ -1206,6 +1076,7 @@ movie
 
 
 
+
 // SERIES
 
 const episodes =
@@ -1230,7 +1101,6 @@ callback_data:`episode_${ep.id}`
 
 }
 
-
 ]);
 
 
@@ -1239,13 +1109,12 @@ return bot.sendMessage(
 
 chatId,
 
-
 `
 
 🎬 ${episodes[0].series_id}
 
 
-━━━━━━━━━━
+━━━━━━━━━━━━━━
 
 
 👇 Select Episode
@@ -1272,7 +1141,9 @@ inline_keyboard:buttons
 
 
 
+
 // NOT FOUND
+
 
 return bot.sendMessage(
 
@@ -1326,26 +1197,17 @@ url:ADMIN_LINK
 );
 
 
-}
-
-
-
-
-
-
+    }
 // ================================
 // CALLBACK HANDLER
 // ================================
 
 bot.on(
-
 "callback_query",
-
 async(query)=>{
 
 
-const data =
-query.data;
+const data = query.data;
 
 
 
@@ -1356,7 +1218,6 @@ if(data.startsWith("verify_")){
 
 
 const id =
-
 data.replace(
 "verify_",
 ""
@@ -1367,14 +1228,13 @@ data.replace(
 const joined =
 
 await checkJoin(
-
 query.message.chat.id
-
 );
 
 
 
 if(!joined){
+
 
 return bot.answerCallbackQuery(
 
@@ -1389,6 +1249,7 @@ show_alert:true
 }
 
 );
+
 
 }
 
@@ -1410,6 +1271,7 @@ id
 
 
 }
+
 
 
 
@@ -1440,9 +1302,7 @@ WHERE id=$1
 
 `,
 
-[
-episodeId
-]
+[episodeId]
 
 );
 
@@ -1491,6 +1351,13 @@ result.rows[0].episode
 
 
 });
+
+
+
+
+
+
+
 // ================================
 // MOVIE INFO
 // ================================
@@ -1561,11 +1428,14 @@ movie.title || movie.movie_id
 
 
 
+
+
 // ================================
 // SEND FILE
 // ================================
 
 async function sendFile(chatId,fileId,name){
+
 
 try{
 
@@ -1641,10 +1511,7 @@ console.log(
 
 
 
-// ================================
 // AUTO DELETE
-// ================================
-
 
 setTimeout(
 
@@ -1674,15 +1541,12 @@ console.log(
 
 catch(err){
 
-
 console.log(
 "Delete Error:",
 err.message
 );
 
-
 }
-
 
 
 },
@@ -1718,7 +1582,6 @@ await bot.sendMessage(
 
 chatId,
 
-
 `
 
 ❌ Unable to send file.
@@ -1732,10 +1595,7 @@ Please contact Admin.
 
 }
 
-
-
 }
-
 
 
 
@@ -1748,65 +1608,43 @@ Please contact Admin.
 
 
 bot.on(
-
 "polling_error",
-
 (err)=>{
 
-
 console.log(
-
 "❌ Polling Error:",
-
 err.message
-
 );
-
 
 });
 
 
 
-
-
 process.on(
-
 "uncaughtException",
-
 (err)=>{
-
 
 console.log(
 "❌ Uncaught Exception"
 );
 
-
 console.log(err);
-
 
 });
 
 
 
-
-
 process.on(
-
 "unhandledRejection",
-
 (err)=>{
-
 
 console.log(
 "❌ Unhandled Rejection"
 );
 
-
 console.log(err);
 
-
 });
-
 
 
 

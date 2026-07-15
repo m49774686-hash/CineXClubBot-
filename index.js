@@ -31,7 +31,7 @@ const STORAGE_CHANNEL = "-1004426096451";
 const BOT_USERNAME = "CineXClubBot";
 
 const ADMIN_LINK =
-"https://t.me/CineXClub_AdminBot";
+"https://t.me/CineXClubBot_Adminbot";
 
 const AUTO_DELETE_TIME =
 30 * 60 * 1000;
@@ -74,6 +74,7 @@ createTable();
 .catch(err=>{
 
 console.log("❌ PostgreSQL Error");
+
 console.log(err);
 
 });
@@ -82,7 +83,7 @@ console.log(err);
 
 
 // ================================
-// CREATE TABLE + AUTO FIX
+// CREATE TABLE
 // ================================
 
 async function createTable(){
@@ -136,7 +137,7 @@ console.log("✅ Database Ready");
 
 catch(err){
 
-console.log("❌ Database Fix Error");
+console.log("❌ Database Error");
 
 console.log(err);
 
@@ -146,8 +147,9 @@ console.log(err);
 
 
 
+
 // ================================
-// WELCOME
+// WELCOME MESSAGE
 // ================================
 
 const WELCOME_TEXT = `
@@ -167,10 +169,6 @@ const WELCOME_TEXT = `
 ⏳ Files are automatically deleted after 30 minutes.
 
 `;
-
-
-
-
 // ================================
 // SAVE MOVIE
 // ================================
@@ -185,11 +183,9 @@ await pool.query(
 `
 
 INSERT INTO videos
-
 (type,movie_id,file_id)
 
 VALUES
-
 ('movie',$1,$2)
 
 ON CONFLICT(movie_id)
@@ -229,6 +225,7 @@ console.log(err);
 
 
 
+
 // ================================
 // SAVE SERIES EPISODE
 // ================================
@@ -243,23 +240,17 @@ await pool.query(
 `
 
 INSERT INTO videos
-
 (type,series_id,episode,file_id)
 
 VALUES
-
 ('series',$1,$2,$3)
 
 `,
 
 [
-
 seriesId.toLowerCase(),
-
 episode.toUpperCase(),
-
 fileId
-
 ]
 
 );
@@ -285,6 +276,11 @@ console.log(err);
 }
 
 }
+
+
+
+
+
 // ================================
 // STORAGE CHANNEL HANDLER
 // ================================
@@ -295,15 +291,16 @@ async(msg)=>{
 
 
 if(
-msg.chat.id.toString() !== STORAGE_CHANNEL
+msg.chat.id.toString()
+!== STORAGE_CHANNEL
 )
 return;
 
 
 
 if(
-!msg.video &&
-!msg.document
+!msg.document &&
+!msg.video
 )
 return;
 
@@ -311,17 +308,19 @@ return;
 
 if(!msg.caption){
 
-console.log("❌ Caption Missing");
+console.log(
+"❌ Caption Missing"
+);
 
 return;
 
 }
 
 
+
 // ================================
-// MULTI AUDIO MKV
-// IMPORTANT:
-// Upload MKV as DOCUMENT
+// MKV MULTI AUDIO
+// UPLOAD AS DOCUMENT
 // ================================
 
 
@@ -330,21 +329,27 @@ let fileId;
 
 if(msg.document){
 
-fileId = msg.document.file_id;
+fileId =
+msg.document.file_id;
 
 }
-
 else{
 
-fileId = msg.video.file_id;
+fileId =
+msg.video.file_id;
 
 }
 
 
 
-console.log("📥 File Received");
+console.log(
+"📥 File Received"
+);
 
-console.log("File ID:",fileId);
+console.log(
+"File ID:",
+fileId
+);
 
 
 
@@ -355,32 +360,36 @@ msg.caption.trim();
 
 
 // ================================
-// SERIES UPLOAD FORMAT
+// SERIES
 //
 // SeriesID: strangerthings_s01
 // Episode: E01
-//
 // ================================
 
 
 if(
+
 /SeriesID:/i.test(text)
 &&
 /Episode:/i.test(text)
+
 ){
 
 
 const seriesId =
 
-text
-.match(/SeriesID:\s*(.+)/i)[1]
+text.match(
+/SeriesID:\s*(.+)/i
+)[1]
 .trim();
+
 
 
 const episode =
 
-text
-.match(/Episode:\s*(.+)/i)[1]
+text.match(
+/Episode:\s*(.+)/i
+)[1]
 .trim();
 
 
@@ -429,17 +438,16 @@ ${link}`
 
 return;
 
-
 }
 
 
 
 
+
 // ================================
-// MOVIE UPLOAD FORMAT
+// MOVIE
 //
 // MovieID: ironman1
-//
 // ================================
 
 
@@ -448,7 +456,9 @@ let movieId;
 
 const match =
 
-text.match(/MovieID:\s*(.+)/i);
+text.match(
+/MovieID:\s*(.+)/i
+);
 
 
 
@@ -513,7 +523,6 @@ ${link}`
 );
 
 
-
 });
 // ================================
 // FORCE JOIN CHECK
@@ -525,7 +534,6 @@ try{
 
 
 const member =
-
 await bot.getChatMember(
 FORCE_CHANNEL,
 userId
@@ -536,9 +544,7 @@ userId
 return (
 
 member.status === "member" ||
-
 member.status === "administrator" ||
-
 member.status === "creator"
 
 );
@@ -594,6 +600,7 @@ movieId.toLowerCase()
 return result.rows[0] || null;
 
 }
+
 
 
 
@@ -702,12 +709,10 @@ url:"https://t.me/CineXClub"
 
 
 
-
 console.log(
 "🎬 Requested:",
 id
 );
-
 
 
 
@@ -750,7 +755,6 @@ url:"https://t.me/CineXClub"
 ],
 
 
-
 [
 
 {
@@ -774,6 +778,7 @@ callback_data:`verify_${id}`
 
 
 }
+
 
 
 
@@ -810,7 +815,7 @@ query.data;
 
 
 
-// VERIFY BUTTON
+// VERIFY JOIN
 
 if(
 data.startsWith("verify_")
@@ -874,8 +879,7 @@ id
 
 
 
-
-// EPISODE BUTTON
+// EPISODE SELECT
 
 
 if(
@@ -918,6 +922,7 @@ episodeId
 
 if(!result.rows[0]){
 
+
 return bot.answerCallbackQuery(
 
 query.id,
@@ -931,6 +936,7 @@ show_alert:true
 }
 
 );
+
 
 }
 
@@ -964,47 +970,32 @@ result.rows[0].episode
 async function sendRequest(chatId,id){
 
 
-
 // MOVIE CHECK
 
-const movie =
-
-await getMovie(id);
-
+const movie = await getMovie(id);
 
 
 if(movie){
 
 return sendFile(
-
 chatId,
-
 movie.file_id,
-
 id
-
 );
 
 }
 
 
 
-
-
 // SERIES CHECK
 
-const episodes =
-
-await getSeries(id);
-
+const episodes = await getSeries(id);
 
 
 if(episodes.length){
 
 
-const buttons =
-
-episodes.map(ep=>[
+const buttons = episodes.map(ep=>[
 
 {
 
@@ -1017,14 +1008,11 @@ callback_data:`episode_${ep.id}`
 ]);
 
 
-
 return bot.sendMessage(
 
 chatId,
 
-
 `🎬 Series Available
-
 
 👇 Select Episode`,
 
@@ -1052,9 +1040,7 @@ return bot.sendMessage(
 
 chatId,
 
-
 "❌ Movie not found in our database.",
-
 
 {
 
@@ -1070,13 +1056,11 @@ inline_keyboard:[
 text:"🔎 Search on Google",
 
 url:
-
 `https://www.google.com/search?q=${encodeURIComponent(id+" movie")}`
 
 }
 
 ],
-
 
 
 [
@@ -1108,7 +1092,7 @@ url:ADMIN_LINK
 
 
 // ================================
-// SEND FILE
+// SEND FILE (FIXED)
 // ================================
 
 async function sendFile(chatId,fileId,name){
@@ -1117,23 +1101,15 @@ try{
 
 
 console.log("📤 Sending File");
-
 console.log(fileId);
 
 
 
-const sent =
-
-await bot.sendDocument(
+const sent = await bot.sendDocument(
 
 chatId,
 
-{
-
-document:fileId
-
-},
-
+fileId,
 
 {
 
@@ -1171,11 +1147,7 @@ console.log(
 
 
 
-// AUTO DELETE
-
-setTimeout(
-
-async()=>{
+setTimeout(async()=>{
 
 
 try{
@@ -1190,11 +1162,9 @@ sent.message_id
 );
 
 
-
 console.log(
 "🗑️ File Deleted"
 );
-
 
 
 }
@@ -1209,12 +1179,7 @@ err.message
 }
 
 
-
-},
-
-AUTO_DELETE_TIME
-
-);
+},AUTO_DELETE_TIME);
 
 
 
@@ -1226,10 +1191,13 @@ catch(err){
 
 
 console.log(
-"❌ Send File Error"
+"❌ SEND DOCUMENT ERROR"
 );
 
-console.log(err);
+
+console.log(
+err.response?.body || err.message
+);
 
 
 
@@ -1251,10 +1219,10 @@ chatId,
 
 
 
+
 // ================================
 // ERROR HANDLING
 // ================================
-
 
 bot.on(
 "polling_error",
@@ -1299,6 +1267,8 @@ console.log(err);
 
 
 
+
+
 // ================================
 // RENDER KEEP ALIVE
 // ================================
@@ -1324,7 +1294,6 @@ res.writeHead(
 );
 
 
-
 res.end(
 "✅ CineXClub Bot Running"
 );
@@ -1332,9 +1301,7 @@ res.end(
 
 }
 
-)
-
-.listen(
+).listen(
 
 PORT,
 
@@ -1352,8 +1319,9 @@ console.log(
 
 
 
+
 // ================================
-// BOT STARTED
+// BOT START LOG
 // ================================
 
 console.clear();
@@ -1369,41 +1337,25 @@ console.log(`
 `);
 
 
+
 console.log(
-"🤖 Bot Username:",
+"🤖 Bot:",
 BOT_USERNAME
 );
 
 
 console.log(
-"📢 Force Channel:",
+"📢 Force:",
 FORCE_CHANNEL
 );
 
 
 console.log(
-"💾 Storage Channel:",
+"💾 Storage:",
 STORAGE_CHANNEL
 );
 
 
 console.log(
-"⏱️ Auto Delete:",
-AUTO_DELETE_TIME / 60000,
-"Minutes"
-);
-
-
-console.log(
-"🗄️ Database:",
-process.env.DATABASE_URL
-?
-"Configured ✅"
-:
-"Missing ❌"
-);
-
-
-console.log(
-"🚀 Bot Ready..."
+"🚀 Bot Ready"
 );

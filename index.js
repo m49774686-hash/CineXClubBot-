@@ -157,20 +157,22 @@ console.log(err);
 
 const WELCOME_TEXT = `
 
-🎬 Welcome to CineXClub Bot
+🎬 Welcome To CineXClub
 
+━━━━━━━━━━━━━━
 
-⚡ Fast • Secure • Free
+🍿 Unlimited Movies & Series
 
+⚡ Fast Download
+🔊 Multi Audio Support
+📂 High Quality Files
+⏳ Auto Delete System
 
-📥 Send your movie or series link to receive your file instantly.
+━━━━━━━━━━━━━━
 
+👇 Choose an text:Join "@CineXClubbot"
 
-🔊 Multi Audio Supported
-
-
-⏳ Files are automatically deleted after 30 minutes.
-
+`;
 `;
 // ================================
 // SAVE MOVIE
@@ -1068,28 +1070,27 @@ fileId,
 
 caption:
 
-`╭━━━━━━━━━━━━━━╮
-🎬 CineXClub
+`╭━━━🎬 CineXClub ━━━╮
+
+🔥 Your File Is Ready
+
+🎞️ Title:
+${name}
+
+📁 Format:
+MKV | Multi Audio
+
+⚡ Quality:
+High Speed Download
+
+⏳ Auto Delete:
+30 Minutes
+
 ╰━━━━━━━━━━━━━━╯
 
+⚡ Enjoy Your Movie 🍿
 
-✅ ${name}
-
-
-📁 Original MKV File
-
-🔊 Multi Audio Supported
-
-
-⏳ Auto Delete: 30 Minutes
-
-
-🤖 @${BOT_USERNAME}`
-
-}
-
-);
-
+🤖 @${@CineXClubBot}`
 
 
 console.log(

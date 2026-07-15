@@ -16,6 +16,17 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
 });
 
 // ================================
+// SETTINGS
+// ================================
+
+const FORCE_CHANNEL = "@CineXClub";
+const STORAGE_CHANNEL = "-1004426096451";
+const BOT_USERNAME = "CineXClubBot";
+const ADMIN_LINK = "https://t.me/CineXClub_AdminBot";
+
+const AUTO_DELETE_TIME = 10 * 60 * 1000; // 10 Minutes
+
+// ================================
 // POSTGRESQL
 // ================================
 
@@ -32,8 +43,9 @@ const pool = new Pool({
 
 async function createTable() {
   try {
+
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS videos (
+      CREATE TABLE IF NOT EXISTS videos(
         id SERIAL PRIMARY KEY,
         movie_id TEXT UNIQUE NOT NULL,
         file_id TEXT NOT NULL,
@@ -41,24 +53,17 @@ async function createTable() {
       );
     `);
 
-    console.log("✅ Database Connected");
+    console.log("✅ PostgreSQL Connected");
 
   } catch (err) {
-    console.log("❌ Database Error:", err.message);
+
+    console.log("❌ Database Error");
+    console.log(err.message);
+
   }
 }
 
 createTable();
-
-// ================================
-// SETTINGS
-// ================================
-
-const FORCE_CHANNEL = "@CineXClub";
-const STORAGE_CHANNEL = "-1004426096451";
-const BOT_USERNAME = "CineXClubBot";
-const ADMIN_LINK = "https://t.me/CineXClubBot_Adminbot";
-
 // ================================
 // WELCOME MESSAGE
 // ================================
@@ -66,53 +71,63 @@ const ADMIN_LINK = "https://t.me/CineXClubBot_Adminbot";
 const WELCOME_TEXT = `
 🎬 Welcome to CineXClub Bot
 
-Send your movie link to receive the file.
+⚡ Fast • Secure • Free
 
-⚡ Fast | Secure | Free
+📥 Send your movie link to receive the file instantly.
+
+⏳ Files are automatically deleted after 10 minutes.
+
+Enjoy your movie 🍿
 `;
 
 // ================================
-// SAVE FILE
+// SAVE VIDEO
 // ================================
 
 async function saveVideo(movieId, fileId) {
   try {
 
     await pool.query(
-      `INSERT INTO videos(movie_id,file_id)
-       VALUES($1,$2)
-       ON CONFLICT(movie_id)
-       DO UPDATE SET file_id=$2`,
-      [movieId, fileId]
+      `
+      INSERT INTO videos(movie_id,file_id)
+      VALUES($1,$2)
+      ON CONFLICT(movie_id)
+      DO UPDATE SET file_id=$2
+      `,
+      [movieId.toLowerCase(), fileId]
     );
 
     console.log("✅ Saved:", movieId);
 
   } catch (err) {
-    console.log("Save Error:", err.message);
+
+    console.log("❌ Save Error:", err.message);
+
   }
 }
 
 // ================================
-// GET FILE
+// GET VIDEO
 // ================================
 
 async function getVideo(movieId) {
+
   try {
 
     const result = await pool.query(
       "SELECT * FROM videos WHERE movie_id=$1",
-      [movieId]
+      [movieId.toLowerCase()]
     );
 
-    return result.rows[0];
+    return result.rows.length ? result.rows[0] : null;
 
   } catch (err) {
 
-    console.log("Database Error:", err.message);
+    console.log("❌ Database Error:", err.message);
     return null;
 
   }
+
 }
 // ================================
 // STORAGE CHANNEL HANDLER
@@ -126,27 +141,41 @@ bot.on("channel_post", async (msg) => {
   if (!msg.video && !msg.document) return;
 
   if (!msg.caption) {
-    console.log("❌ Caption missing");
+    console.log("❌ Caption Missing");
     return;
   }
 
-  const movieId = msg.caption
-    .trim()
-    .replace(/\s+/g, "");
+  // Caption example:
+  // MovieID: ironman1
+
+  let movieId = msg.caption;
+
+  const match = msg.caption.match(/movieid\s*:\s*(.+)/i);
+
+  if (match) {
+    movieId = match[1].trim();
+  } else {
+    movieId = msg.caption.trim();
+  }
+
+  movieId = movieId
+    .replace(/\s+/g, "")
+    .toLowerCase();
 
   const file = msg.video || msg.document;
   const fileId = file.file_id;
 
-  // Save to Database
+  // Save File
   await saveVideo(movieId, fileId);
 
-  // Generate Bot Link
-  const botLink = `https://t.me/${BOT_USERNAME}?start=${movieId}`;
+  // Bot Link
+  const botLink =
+    `https://t.me/${BOT_USERNAME}?start=${movieId}`;
 
-  // Send confirmation in storage channel
+  // Confirmation
   await bot.sendMessage(
     msg.chat.id,
-    `✅ File Saved
+    `✅ File Saved Successfully
 
 🎬 Movie ID: ${movieId}
 
@@ -155,30 +184,9 @@ ${botLink}`
   );
 
   console.log("✅ Saved:", movieId);
+  console.log("🔗", botLink);
+
 });
-// ================================
-// FORCE JOIN CHECK
-// ================================
-
-async function checkJoin(userId) {
-  try {
-    const member = await bot.getChatMember(
-      FORCE_CHANNEL,
-      userId
-    );
-
-    return (
-      member.status === "member" ||
-      member.status === "administrator" ||
-      member.status === "creator"
-    );
-
-  } catch (err) {
-    console.log("Join Error:", err.message);
-    return false;
-  }
-}
-
 // ================================
 // START COMMAND
 // ================================
@@ -186,7 +194,7 @@ async function checkJoin(userId) {
 bot.onText(/\/start(.*)/, async (msg, match) => {
 
   const chatId = msg.chat.id;
-  const movieId = match[1].trim();
+  const movieId = match[1].trim().toLowerCase();
 
   // Normal Start
   if (!movieId) {
@@ -245,16 +253,16 @@ bot.onText(/\/start(.*)/, async (msg, match) => {
   await sendVideo(chatId, movieId);
 
 });
+
 // ================================
 // VERIFY BUTTON
 // ================================
 
 bot.on("callback_query", async (query) => {
 
-  const chatId = query.message.chat.id;
-
   if (!query.data.startsWith("verify_")) return;
 
+  const chatId = query.message.chat.id;
   const movieId = query.data.replace("verify_", "");
 
   const joined = await checkJoin(chatId);
@@ -262,7 +270,7 @@ bot.on("callback_query", async (query) => {
   if (!joined) {
 
     await bot.answerCallbackQuery(query.id, {
-      text: "❌ Please join the channel first.",
+      text: "❌ Please join our channel first.",
       show_alert: true
     });
 
@@ -274,7 +282,6 @@ bot.on("callback_query", async (query) => {
   await sendVideo(chatId, movieId);
 
 });
-
 // ================================
 // SEND FILE
 // ================================
@@ -299,7 +306,7 @@ async function sendVideo(chatId, movieId) {
             ],
             [
               {
-                text: "👨‍💻 Admin Bot",
+                text: "👨‍💻 Admin",
                 url: ADMIN_LINK
               }
             ]
@@ -317,25 +324,56 @@ async function sendVideo(chatId, movieId) {
       chatId,
       video.file_id,
       {
-        caption: "🎬 Here is your file."
+        caption:
+`🎬 Here is your file
+
+⚠️ This file will be automatically deleted after 10 minutes.
+
+📥 Please save or forward it before it is deleted.
+
+━━━━━━━━━━━━━━
+🤖 @${BOT_USERNAME}`
       }
     );
 
+    // Delete after 10 minutes
     setTimeout(async () => {
+
       try {
-        await bot.deleteMessage(chatId, sent.message_id);
+
+        await bot.deleteMessage(
+          chatId,
+          sent.message_id
+        );
+
+        await bot.sendMessage(
+          chatId,
+          "🗑️ Your file has been deleted automatically after 10 minutes."
+        );
+
+        console.log("🗑️ File Deleted");
+
       } catch (err) {
-        console.log("Delete Error:", err.message);
+
+        console.log(
+          "Delete Error:",
+          err.message
+        );
+
       }
-    }, 30 * 60 * 1000);
+
+    }, AUTO_DELETE_TIME);
 
   } catch (err) {
 
-    console.log("Send Error:", err.message);
+    console.log(
+      "Send Error:",
+      err.message
+    );
 
     await bot.sendMessage(
       chatId,
-      "❌ Unable to send file."
+      "❌ Unable to send file. Please try again later."
     );
 
   }
@@ -368,7 +406,7 @@ process.on("unhandledRejection", (reason) => {
 });
 
 // ================================
-// RENDER HTTP SERVER
+// KEEP RENDER ALIVE
 // ================================
 
 const PORT = process.env.PORT || 10000;
@@ -383,7 +421,7 @@ http.createServer((req, res) => {
 
 }).listen(PORT, () => {
 
-  console.log(`🌐 Server running on ${PORT}`);
+  console.log(`🌐 Server Running On Port ${PORT}`);
 
 });
 
@@ -391,4 +429,15 @@ http.createServer((req, res) => {
 // BOT STARTED
 // ================================
 
-console.log("🤖 CineXClub Bot Started Successfully");
+console.log(`
+╔══════════════════════════════╗
+║      🎬 CineXClub Bot        ║
+║         Started ✅           ║
+╚══════════════════════════════╝
+`);
+
+console.log("🤖 Bot Username :", BOT_USERNAME);
+console.log("📢 Force Channel :", FORCE_CHANNEL);
+console.log("💾 Storage Channel :", STORAGE_CHANNEL);
+console.log("⏱️ Auto Delete :", AUTO_DELETE_TIME / 60000, "Minutes");
+console.log("🚀 Bot Ready...");

@@ -33,7 +33,6 @@ const BOT_USERNAME = "CineXClubBot";
 const ADMIN_LINK =
 "https://t.me/CineXClub_AdminBot";
 
-
 const AUTO_DELETE_TIME =
 30 * 60 * 1000;
 
@@ -45,12 +44,12 @@ const AUTO_DELETE_TIME =
 
 const pool = new Pool({
 
- connectionString:
- process.env.DATABASE_URL,
+connectionString:
+process.env.DATABASE_URL,
 
- ssl:{
-  rejectUnauthorized:false
- }
+ssl:{
+rejectUnauthorized:false
+}
 
 });
 
@@ -64,18 +63,18 @@ pool.connect()
 
 .then(client=>{
 
- console.log("✅ PostgreSQL Connected");
+console.log("✅ PostgreSQL Connected");
 
- client.release();
+client.release();
 
- createTable();
+createTable();
 
 })
 
 .catch(err=>{
 
- console.log("❌ Database Error");
- console.log(err);
+console.log("❌ PostgreSQL Error");
+console.log(err);
 
 });
 
@@ -99,7 +98,7 @@ id SERIAL PRIMARY KEY,
 
 type TEXT NOT NULL,
 
-movie_id TEXT,
+movie_id TEXT UNIQUE,
 
 series_id TEXT,
 
@@ -114,7 +113,7 @@ created_at TIMESTAMP DEFAULT NOW()
 `);
 
 
-console.log("✅ Table Ready");
+console.log("✅ Database Ready");
 
 
 }
@@ -125,7 +124,6 @@ console.log("❌ Table Error");
 console.log(err);
 
 }
-
 
 }
 
@@ -144,6 +142,9 @@ const WELCOME_TEXT = `
 
 
 📥 Send your movie or series link to receive your file instantly.
+
+
+🔊 Multi Audio Supported
 
 
 ⏳ Files are automatically deleted after 30 minutes.
@@ -166,7 +167,9 @@ INSERT INTO videos
 VALUES
 ('movie',$1,$2)
 
-ON CONFLICT DO NOTHING
+ON CONFLICT(movie_id)
+DO UPDATE SET file_id=EXCLUDED.file_id
+
 `,
 
 [
@@ -187,7 +190,10 @@ movieId
 
 catch(err){
 
-console.log("❌ Movie Save Error");
+console.log(
+"❌ Movie Save Error"
+);
+
 console.log(err);
 
 }
@@ -208,12 +214,18 @@ try{
 await pool.query(
 
 `
+
 INSERT INTO videos
+
 (type,series_id,episode,file_id)
 
 VALUES
+
 ('series',$1,$2,$3)
-`,
+
+`
+
+,
 
 [
 seriesId.toLowerCase(),
@@ -235,7 +247,10 @@ episode
 
 catch(err){
 
-console.log("❌ Episode Save Error");
+console.log(
+"❌ Episode Save Error"
+);
+
 console.log(err);
 
 }
@@ -246,7 +261,7 @@ console.log(err);
 
 
 // ================================
-// STORAGE CHANNEL UPLOAD
+// STORAGE CHANNEL HANDLER
 // ================================
 
 bot.on(
@@ -282,17 +297,39 @@ return;
 
 
 
+// ================================
+// MULTI AUDIO MKV
+// IMPORTANT:
+// Upload as FILE/DOCUMENT
+// ================================
 
-// MKV MULTI AUDIO
-// Upload as FILE
+let fileId;
 
-const fileId =
 
-msg.document
-?
-msg.document.file_id
-:
+if(msg.document){
+
+fileId =
+msg.document.file_id;
+
+}
+
+else{
+
+fileId =
 msg.video.file_id;
+
+}
+
+
+
+console.log(
+"📥 File Received"
+);
+
+console.log(
+"File ID:",
+fileId
+);
 
 
 
@@ -302,9 +339,8 @@ msg.caption.trim();
 
 
 
-
 // ================================
-// SERIES UPLOAD FORMAT
+// SERIES FORMAT
 //
 // SeriesID: strangerthings_s01
 // Episode: E01
@@ -324,8 +360,7 @@ const seriesId =
 
 text
 .match(/SeriesID:\s*(.+)/i)[1]
-.trim()
-.toLowerCase();
+.trim();
 
 
 
@@ -333,22 +368,25 @@ const episode =
 
 text
 .match(/Episode:\s*(.+)/i)[1]
-.trim()
-.toUpperCase();
+.trim();
 
 
 
 await saveEpisode(
+
 seriesId,
+
 episode,
+
 fileId
+
 );
 
 
 
 const link =
 
-`https://t.me/${BOT_USERNAME}?start=${seriesId}`;
+`https://t.me/${BOT_USERNAME}?start=${seriesId.toLowerCase()}`;
 
 
 
@@ -383,16 +421,14 @@ return;
 
 
 
-
 // ================================
-// MOVIE UPLOAD FORMAT
+// MOVIE FORMAT
 //
 // MovieID: ironman1
 // ================================
 
 
 let movieId;
-
 
 
 const match =
@@ -427,8 +463,11 @@ movieId
 
 
 await saveMovie(
+
 movieId,
+
 fileId
+
 );
 
 
@@ -447,6 +486,7 @@ msg.chat.id,
 
 
 🎬 Movie ID:
+
 ${movieId}
 
 
@@ -500,6 +540,7 @@ return false;
 
 
 
+
 // ================================
 // GET MOVIE
 // ================================
@@ -511,8 +552,11 @@ await pool.query(
 
 `
 SELECT * FROM videos
+
 WHERE type='movie'
+
 AND LOWER(movie_id)=$1
+
 `,
 
 [
@@ -528,8 +572,9 @@ return result.rows[0] || null;
 
 
 
+
 // ================================
-// GET SERIES EPISODES
+// GET SERIES
 // ================================
 
 async function getSeries(seriesId){
@@ -538,10 +583,15 @@ const result =
 await pool.query(
 
 `
+
 SELECT * FROM videos
+
 WHERE type='series'
+
 AND LOWER(series_id)=$1
-ORDER BY episode ASC
+
+ORDER BY id ASC
+
 `,
 
 [
@@ -557,24 +607,32 @@ return result.rows;
 
 
 
+
 // ================================
 // START COMMAND
 // ================================
 
 bot.onText(
+
 /\/start(?:\s+(.+))?/,
+
 async(msg,match)=>{
 
 
-const chatId = msg.chat.id;
+const chatId =
+msg.chat.id;
 
 
 const id =
+
 (match[1] || "")
 .trim()
 .toLowerCase();
 
 
+
+
+// WELCOME
 
 if(!id){
 
@@ -591,9 +649,13 @@ reply_markup:{
 inline_keyboard:[
 
 [
+
 {
+
 text:"📢 Join Channel",
+
 url:"https://t.me/CineXClub"
+
 }
 
 ]
@@ -610,6 +672,15 @@ url:"https://t.me/CineXClub"
 
 
 
+
+console.log(
+"🎬 Requested:",
+id
+);
+
+
+
+
 // FORCE JOIN
 
 const joined =
@@ -618,6 +689,7 @@ await checkJoin(chatId);
 
 
 if(!joined){
+
 
 return bot.sendMessage(
 
@@ -632,17 +704,26 @@ reply_markup:{
 inline_keyboard:[
 
 [
+
 {
+
 text:"📢 Join Channel",
+
 url:"https://t.me/CineXClub"
+
 }
 
 ],
 
+
 [
+
 {
+
 text:"✅ I've Joined",
+
 callback_data:`verify_${id}`
+
 }
 
 ]
@@ -655,17 +736,24 @@ callback_data:`verify_${id}`
 
 );
 
+
 }
+
 
 
 
 await sendRequest(
+
 chatId,
+
 id
+
 );
 
 
 });
+
+
 
 
 
@@ -675,7 +763,9 @@ id
 // ================================
 
 bot.on(
+
 "callback_query",
+
 async(query)=>{
 
 
@@ -687,11 +777,14 @@ query.data;
 // VERIFY BUTTON
 
 if(
+
 data.startsWith("verify_")
+
 ){
 
 
 const id =
+
 data.replace(
 "verify_",
 ""
@@ -700,6 +793,7 @@ data.replace(
 
 
 const joined =
+
 await checkJoin(
 query.message.chat.id
 );
@@ -713,8 +807,11 @@ return bot.answerCallbackQuery(
 query.id,
 
 {
-text:"❌ Please join channel first",
+
+text:"❌ Join Channel First",
+
 show_alert:true
+
 }
 
 );
@@ -724,10 +821,7 @@ show_alert:true
 
 
 await bot.answerCallbackQuery(
-query.id,
-{
-text:"✅ Verified"
-}
+query.id
 );
 
 
@@ -750,11 +844,14 @@ id
 
 
 if(
+
 data.startsWith("episode_")
+
 ){
 
 
 const episodeId =
+
 data.replace(
 "episode_",
 ""
@@ -763,11 +860,15 @@ data.replace(
 
 
 const result =
+
 await pool.query(
 
 `
+
 SELECT * FROM videos
+
 WHERE id=$1
+
 `,
 
 [
@@ -780,13 +881,21 @@ episodeId
 
 if(!result.rows[0]){
 
+
 return bot.answerCallbackQuery(
+
 query.id,
+
 {
+
 text:"❌ File not found",
+
 show_alert:true
+
 }
+
 );
+
 
 }
 
@@ -817,11 +926,13 @@ result.rows[0].episode
 
 
 
+
 // ================================
 // REQUEST HANDLER
 // ================================
 
 async function sendRequest(chatId,id){
+
 
 
 // MOVIE CHECK
@@ -851,6 +962,7 @@ id
 // SERIES CHECK
 
 const episodes =
+
 await getSeries(id);
 
 
@@ -858,7 +970,9 @@ await getSeries(id);
 if(episodes.length){
 
 
+
 const buttons =
+
 episodes.map(ep=>[
 
 {
@@ -893,6 +1007,7 @@ inline_keyboard:buttons
 
 );
 
+
 }
 
 
@@ -912,22 +1027,34 @@ reply_markup:{
 
 inline_keyboard:[
 
+
 [
+
 {
+
 text:"🔎 Search on Google",
+
 url:
+
 `https://www.google.com/search?q=${encodeURIComponent(id+" movie")}`
+
 }
 
 ],
 
+
 [
+
 {
+
 text:"👨‍💻 Admin Bot",
+
 url:ADMIN_LINK
+
 }
 
 ]
+
 
 ]
 
@@ -938,7 +1065,7 @@ url:ADMIN_LINK
 );
 
 
-}
+  }
 // ================================
 // SEND FILE
 // ================================
@@ -950,6 +1077,7 @@ try{
 
 console.log("📤 Sending File");
 console.log("File ID:",fileId);
+console.log("Name:",name);
 
 
 
@@ -959,7 +1087,9 @@ await bot.sendDocument(
 
 chatId,
 
-fileId,
+{
+ document:fileId
+},
 
 {
 
@@ -991,14 +1121,16 @@ caption:
 
 
 console.log(
-"✅ File Sent"
+"✅ File Sent Successfully"
 );
+
 
 
 
 // AUTO DELETE
 
 setTimeout(
+
 async()=>{
 
 
@@ -1069,10 +1201,11 @@ chatId,
 
 
 
+
+
 // ================================
 // ERROR HANDLING
 // ================================
-
 
 bot.on(
 "polling_error",
@@ -1084,6 +1217,7 @@ err.message
 );
 
 });
+
 
 
 bot.on(
@@ -1112,6 +1246,7 @@ console.log(err);
 });
 
 
+
 process.on(
 "unhandledRejection",
 (reason)=>{
@@ -1127,10 +1262,11 @@ console.log(reason);
 
 
 
+
+
 // ================================
 // RENDER KEEP ALIVE
 // ================================
-
 
 const PORT =
 process.env.PORT || 10000;
@@ -1179,10 +1315,11 @@ console.log(
 
 
 
-// ================================
-// BOT START LOGS
-// ================================
 
+
+// ================================
+// BOT STARTED
+// ================================
 
 console.clear();
 
@@ -1204,16 +1341,19 @@ BOT_USERNAME
 );
 
 
+
 console.log(
 "📢 Force Channel:",
 FORCE_CHANNEL
 );
 
 
+
 console.log(
 "💾 Storage Channel:",
 STORAGE_CHANNEL
 );
+
 
 
 console.log(
@@ -1223,14 +1363,19 @@ AUTO_DELETE_TIME / 60000,
 );
 
 
+
 console.log(
+
 "🗄️ Database:",
+
 process.env.DATABASE_URL
 ?
 "Configured ✅"
 :
 "Missing ❌"
+
 );
+
 
 
 console.log(

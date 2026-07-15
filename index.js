@@ -539,6 +539,11 @@ bot.on(
 "channel_post",
 async(msg)=>{
 
+    console.log("🔥 CHANNEL POST RECEIVED");
+console.log(msg.chat.id);
+
+});
+
 
 if(
 msg.chat.id.toString() !== STORAGE_CHANNEL

@@ -5,7 +5,7 @@
 
 require("dotenv").config();
 
-const TelegramBot = require("node-telegram-api");
+const TelegramBot = require("node-telegram-bot-api");
 const { Pool } = require("pg");
 const http = require("http");
 

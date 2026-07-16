@@ -3025,22 +3025,7 @@ console.log("Index Error:",err.message);
 createIndexes();
 
 
-}catch(err){
 
-console.log(
-"Index Error"
-);
-
-
-}
-
-
-
-}
-
-
-
-createIndexes();
 
 
 

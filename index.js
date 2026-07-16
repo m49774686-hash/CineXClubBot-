@@ -2987,45 +2987,42 @@ i,
 // DATABASE INDEXES
 // ============================================
 
-async function createIndexes(){
 
+async function createIndexes(){
 
 try{
 
-
 await pool.query(`
-
 CREATE INDEX IF NOT EXISTS content_id_index
-
-ON contents(content_id);
-
-
-
-CREATE INDEX IF NOT EXISTS collection_index
-
-ON contents(collection);
-
-
-
-CREATE INDEX IF NOT EXISTS type_index
-
-ON contents(type);
-
-
-
-CREATE INDEX IF NOT EXISTS username_index
-
-ON users(username);
-
+ON contents(content_id)
 `);
 
+await pool.query(`
+CREATE INDEX IF NOT EXISTS collection_index
+ON contents(collection)
+`);
 
+await pool.query(`
+CREATE INDEX IF NOT EXISTS type_index
+ON contents(type)
+`);
 
+await pool.query(`
+CREATE INDEX IF NOT EXISTS username_index
+ON users(username)
+`);
 
-console.log(
-"✅ Indexes Created"
-);
+console.log("✅ Indexes Created");
 
+}catch(err){
+
+console.log("Index Error:",err.message);
+
+}
+
+}
+
+createIndexes();
 
 
 }catch(err){

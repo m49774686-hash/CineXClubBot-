@@ -605,17 +605,31 @@ year[0]
 
 
 
-// LANGUAGE
 
-let language =
+// LANGUAGE FROM CAPTION
+
+let lines =
 caption
 .split("\n")
-.find(x =>
-x.includes("+")
-)
-||
-"Unknown";
+.map(x=>x.trim())
+.filter(Boolean);
 
+
+let language = "Unknown";
+
+
+for(let i=1;i<lines.length;i++){
+
+if(
+lines[i].includes("+")
+){
+
+language = lines[i];
+break;
+
+}
+
+}
 
 
 
@@ -939,8 +953,8 @@ return null;
 // CAPTION WITH SELECTED QUALITY
 // ================================
 
-function premiumCaption(movie,selectedQuality){
 
+function premiumCaption(movie,selectedQuality){
 
 return `
 
@@ -957,17 +971,19 @@ ${selectedQuality}
 
 
 🌐 Language:
-${movie.language || "Unknown"}
+${movie.language || "N/A"}
 
 
 ━━━━━━━━━━━━━━
 
 ⚡ Powered By CineXClub
 
+❓ Any Questions?
+Contact Admin
+
 `;
 
 }
-
 
 
 
@@ -1294,6 +1310,7 @@ try{
 
 
 let sent =
+
 await bot.sendDocument(
 
 chatId,
@@ -1305,12 +1322,33 @@ movie.file_id,
 caption:
 premiumCaption(movie,selectedQuality),
 
-parse_mode:"HTML"
+parse_mode:"HTML",
+
+reply_markup:{
+
+inline_keyboard:[
+
+[
+{
+text:"📢 CineXClub",
+url:"https://t.me/CineXClub"
+}
+],
+
+[
+{
+text:"👤 Contact Admin",
+url:"https://t.me/CineXClubBot_Adminbot"
+}
+]
+
+]
+
+}
 
 }
 
 );
-
 
 
 

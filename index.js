@@ -490,9 +490,31 @@ bot.on(
 "channel_post",
 async(msg)=>{
 
+console.log("📩 CHANNEL POST RECEIVED");
+console.log("CHANNEL ID:", msg.chat.id);
+console.log("STORAGE ID:", STORAGE_CHANNEL);
+
 
 try{
 
+if(
+Number(msg.chat.id) !== Number(STORAGE_CHANNEL)
+){
+console.log("❌ Wrong Storage Channel");
+return;
+}
+
+
+if(!msg.video){
+console.log("❌ No Video");
+return;
+}
+
+
+console.log(
+"✅ Video Detected:",
+msg.video.file_id
+);
 
 if(
 msg.chat.id !== STORAGE_CHANNEL

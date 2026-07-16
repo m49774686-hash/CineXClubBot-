@@ -1,6 +1,6 @@
 // ================================
 // CINEXCLUB BOT
-// FINAL REPLACE INDEX.JS - PART 1
+// FINAL INDEX.JS - PART 1
 // ================================
 
 require("dotenv").config();
@@ -11,16 +11,14 @@ const http = require("http");
 
 
 // ================================
-// ENV
+// CONFIG
 // ================================
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
 if(!BOT_TOKEN){
-
 console.log("❌ BOT_TOKEN Missing");
 process.exit(1);
-
 }
 
 
@@ -37,12 +35,13 @@ Number(process.env.STORAGE_CHANNEL_ID || 0);
 
 
 const ADMIN_BOT =
-process.env.ADMIN_BOT || "CineXClubAdmin";
+"CineXClubBot_Adminbot";
+
 
 
 
 // ================================
-// BOT
+// BOT START
 // ================================
 
 const bot = new TelegramBot(
@@ -52,13 +51,13 @@ polling:{
 interval:300,
 autoStart:true
 }
-}
-);
+});
+
 
 
 
 // ================================
-// DATABASE
+// POSTGRESQL
 // ================================
 
 const pool = new Pool({
@@ -75,8 +74,9 @@ rejectUnauthorized:false
 
 
 
+
 // ================================
-// KEEP ALIVE
+// RENDER KEEP ALIVE
 // ================================
 
 http.createServer(
@@ -85,7 +85,7 @@ http.createServer(
 res.writeHead(200);
 
 res.end(
-"CineXClub Running"
+"CineXClub Bot Running"
 );
 
 }
@@ -97,11 +97,12 @@ process.env.PORT || 3000
 
 
 
+
 // ================================
-// DATABASE TABLES
+// DATABASE SETUP
 // ================================
 
-async function setupDatabase(){
+async function initDatabase(){
 
 try{
 
@@ -118,7 +119,7 @@ title TEXT,
 
 year TEXT,
 
-language TEXT,
+language TEXT DEFAULT 'Unknown',
 
 quality TEXT DEFAULT '720p',
 
@@ -162,7 +163,7 @@ created_at TIMESTAMP DEFAULT NOW()
 
 await pool.query(`
 
-CREATE INDEX IF NOT EXISTS movies_id_index
+CREATE INDEX IF NOT EXISTS movie_search
 
 ON movies(movie_id);
 
@@ -173,7 +174,7 @@ ON movies(movie_id);
 
 await pool.query(`
 
-CREATE INDEX IF NOT EXISTS series_id_index
+CREATE INDEX IF NOT EXISTS series_search
 
 ON series(series_id);
 
@@ -181,8 +182,9 @@ ON series(series_id);
 
 
 
+
 console.log(
-"✅ Database Ready"
+"✅ Database Connected"
 );
 
 
@@ -190,7 +192,7 @@ console.log(
 }catch(err){
 
 console.log(
-"Database Setup Error:",
+"Database Error:",
 err.message
 );
 
@@ -200,7 +202,8 @@ err.message
 }
 
 
-setupDatabase();
+initDatabase();
+
 
 
 
@@ -211,7 +214,6 @@ setupDatabase();
 
 async function isJoined(userId){
 
-
 try{
 
 
@@ -219,13 +221,11 @@ if(!FORCE_CHANNEL)
 return true;
 
 
-
 let member =
 await bot.getChatMember(
 FORCE_CHANNEL,
 userId
 );
-
 
 
 return [
@@ -259,7 +259,7 @@ return false;
 
 
 // ================================
-// WELCOME UI
+// WELCOME MESSAGE
 // ================================
 
 function welcome(user){
@@ -275,12 +275,12 @@ return `
 ${user.first_name}
 
 
-🆔 ID:
-<code>${user.id}</code>
-
-
 📛 Username:
 @${user.username || "None"}
+
+
+🆔 ID:
+<code>${user.id}</code>
 
 
 ━━━━━━━━━━━━━━
@@ -290,11 +290,12 @@ ${user.first_name}
 🎞 Premium Quality
 
 
-Choose an option 👇
+Enjoy Watching 🎉
 
 `;
 
 }
+
 
 
 
@@ -305,31 +306,30 @@ Choose an option 👇
 
 function homeButtons(){
 
-
 return {
 
 inline_keyboard:[
+
 
 [
 {
 text:"🎬 Request Movie",
 url:
-`https://t.me/${ADMIN_BOT}`
+"https://t.me/CineXClubBot_Adminbot"
 }
 
 ],
+
 
 [
 {
 text:"📢 Join Channel",
 url:
-FORCE_CHANNEL ?
-`https://t.me/${FORCE_CHANNEL.replace("@","")}`
-:
-"https://t.me/"
+"https://t.me/CineXClub"
 }
 
 ]
+
 
 ]
 
@@ -343,9 +343,10 @@ console.log(
 "✅ Part 1 Loaded"
 );
 // ================================
-// FINAL REPLACE INDEX.JS - PART 2
+// FINAL INDEX.JS - PART 2
 // STORAGE UPLOAD SYSTEM
 // ================================
+
 
 
 // ================================
@@ -406,7 +407,6 @@ err.message
 
 return false;
 
-
 }
 
 }
@@ -420,7 +420,6 @@ return false;
 // ================================
 
 async function saveSeries(data){
-
 
 try{
 
@@ -477,7 +476,6 @@ return false;
 
 }
 
-
 }
 
 
@@ -485,7 +483,7 @@ return false;
 
 
 // ================================
-// BOT LINK
+// CREATE BOT LINK
 // ================================
 
 function createBotLink(id){
@@ -497,9 +495,9 @@ return `https://t.me/${BOT_USERNAME}?start=${id}`;
 
 
 
+
 // ================================
-// STORAGE CHANNEL
-// FILE UPLOAD
+// PRIVATE STORAGE UPLOAD
 // ================================
 
 
@@ -530,9 +528,10 @@ return;
 
 
 
-// DOCUMENT / VIDEO SUPPORT
+// DOCUMENT + VIDEO SUPPORT
 
 let fileId = null;
+
 
 
 if(msg.document){
@@ -553,15 +552,14 @@ msg.video.file_id;
 
 else{
 
-
 console.log(
 "❌ No File"
 );
 
 return;
 
-
 }
+
 
 
 
@@ -584,10 +582,13 @@ return;
 
 
 
+// FIRST LINE AS TITLE
+
 let title =
 caption
 .split("\n")[0]
 .trim();
+
 
 
 
@@ -600,7 +601,8 @@ title
 
 
 
-// DEFAULT QUALITY
+
+// QUALITY (DEFAULT 720)
 
 let quality =
 caption.match(
@@ -612,6 +614,7 @@ quality =
 quality ?
 quality[1]:
 "720p";
+
 
 
 
@@ -635,8 +638,7 @@ year[0]:
 
 // SERIES CHECK
 
-
-let seriesCheck =
+let isSeries =
 
 /s\d+/i.test(caption)
 
@@ -653,8 +655,8 @@ let seriesCheck =
 
 
 
-if(seriesCheck){
 
+if(isSeries){
 
 
 let season =
@@ -703,6 +705,8 @@ file_id:fileId
 
 
 
+
+
 await bot.sendMessage(
 
 msg.chat.id,
@@ -712,11 +716,15 @@ msg.chat.id,
 ✅ Series Saved
 
 
+📺 ${title}
+
+
 🆔 ID:
 ${movieId}
 
 
 🔗 Link:
+
 ${createBotLink(movieId)}
 
 `
@@ -752,7 +760,6 @@ quality:"720p",
 
 file_id:fileId
 
-
 });
 
 
@@ -772,10 +779,6 @@ msg.chat.id,
 ${title}
 
 
-🆔 ID:
-${movieId}
-
-
 📅 Year:
 ${year || "N/A"}
 
@@ -784,7 +787,12 @@ ${year || "N/A"}
 720p
 
 
+🆔 ID:
+${movieId}
+
+
 🔗 Link:
+
 ${createBotLink(movieId)}
 
 `
@@ -819,9 +827,10 @@ console.log(
 "✅ Part 2 Loaded"
 );
 // ================================
-// FINAL REPLACE INDEX.JS - PART 3
-// USER SYSTEM
+// FINAL INDEX.JS - PART 3
+// START SYSTEM
 // ================================
+
 
 
 // ================================
@@ -866,7 +875,6 @@ err.message
 
 return null;
 
-
 }
 
 }
@@ -876,7 +884,7 @@ return null;
 
 
 // ================================
-// GET 720p FILE
+// GET 720P FILE
 // ================================
 
 async function get720File(id){
@@ -904,7 +912,6 @@ id.toLowerCase()
 );
 
 
-
 return result.rows[0] || null;
 
 
@@ -912,14 +919,13 @@ return result.rows[0] || null;
 
 
 console.log(
-"720 File Error:",
+"Get 720 Error:",
 err.message
 );
 
 
 return null;
 
-
 }
 
 }
@@ -927,12 +933,12 @@ return null;
 
 
 
+
 // ================================
-// MOVIE CAPTION
+// CAPTION
 // ================================
 
-function movieCaption(movie){
-
+function premiumCaption(movie){
 
 return `
 
@@ -963,13 +969,11 @@ ${movie.language || "Unknown"}
 
 
 
-
 // ================================
 // YEAR BUTTONS
 // ================================
 
 function yearButtons(id){
-
 
 return {
 
@@ -977,24 +981,26 @@ inline_keyboard:[
 
 [
 {
+text:"📅 2026",
+callback_data:`year_${id}_2026`
+},
+
+{
 text:"📅 2025",
 callback_data:`year_${id}_2025`
-},
-{
-text:"📅 2024",
-callback_data:`year_${id}_2024`
 }
 
 ],
 
 [
 {
+text:"📅 2024",
+callback_data:`year_${id}_2024`
+},
+
+{
 text:"📅 2023",
 callback_data:`year_${id}_2023`
-},
-{
-text:"📅 2022",
-callback_data:`year_${id}_2022`
 }
 
 ]
@@ -1008,19 +1014,18 @@ callback_data:`year_${id}_2022`
 
 
 
+
 // ================================
 // QUALITY BUTTONS
 // ================================
 
 function qualityButtons(id){
 
-
 return {
 
 inline_keyboard:[
 
 [
-
 {
 text:"🎞 480p",
 callback_data:`quality_${id}`
@@ -1047,21 +1052,17 @@ callback_data:`quality_${id}`
 
 
 
+
 // ================================
 // SEND FILE
-// AUTO DELETE 10 MIN
 // ================================
 
-async function sendFile(
-chatId,
-movie
-){
-
+async function sendFile(chatId,movie){
 
 try{
 
 
-let msg =
+let sent =
 await bot.sendDocument(
 
 chatId,
@@ -1071,7 +1072,7 @@ movie.file_id,
 {
 
 caption:
-movieCaption(movie),
+premiumCaption(movie),
 
 parse_mode:"HTML"
 
@@ -1081,19 +1082,18 @@ parse_mode:"HTML"
 
 
 
-// DELETE AFTER 10 MINUTES
+// AUTO DELETE 10 MIN
 
 setTimeout(async()=>{
 
 
 try{
 
-
 await bot.deleteMessage(
 
 chatId,
 
-msg.message_id
+sent.message_id
 
 );
 
@@ -1120,7 +1120,6 @@ err.message
 
 
 }
-
 
 }
 
@@ -1153,7 +1152,6 @@ msg.from;
 
 // NORMAL START
 
-
 if(!match[1]){
 
 
@@ -1182,13 +1180,11 @@ return;
 
 
 
+
 // FORCE JOIN
 
-
 let joined =
-await isJoined(
-user.id
-);
+await isJoined(user.id);
 
 
 
@@ -1199,7 +1195,9 @@ await bot.sendMessage(
 
 chatId,
 
-"⚠️ Please join our channel first"
+`
+⚠️ Please Join Our Channel First
+`
 
 );
 
@@ -1211,15 +1209,15 @@ return;
 
 
 
+
 let id =
 match[1]
+.replace("movieid:","")
 .trim()
 .toLowerCase();
 
 
 
-
-// MOVIE CHECK
 
 
 let movie =
@@ -1234,7 +1232,58 @@ await bot.sendMessage(
 
 chatId,
 
-"❌ Video not in our database"
+`
+
+❌ <b>Video Not Found</b>
+
+
+Select an option below 👇
+
+`,
+
+{
+
+parse_mode:"HTML",
+
+reply_markup:{
+
+inline_keyboard:[
+
+[
+
+{
+text:"🔎 Google Search",
+url:
+`https://www.google.com/search?q=${encodeURIComponent(id)}`
+}
+
+],
+
+[
+
+{
+text:"🎬 Request Movie",
+url:
+"https://t.me/CineXClubBot_Adminbot"
+}
+
+],
+
+[
+
+{
+text:"📢 Join Channel",
+url:
+"https://t.me/CineXClub"
+}
+
+]
+
+]
+
+}
+
+}
 
 );
 
@@ -1256,7 +1305,7 @@ chatId,
 🎬 <b>${movie.title}</b>
 
 
-Select Year 👇
+📅 Select Year 👇
 
 `
 
@@ -1275,14 +1324,14 @@ yearButtons(id)
 
 
 
-
 }catch(err){
 
 
 console.log(
-"START ERROR:",
+"Start Error:",
 err.message
 );
+
 
 
 await bot.sendMessage(
@@ -1307,51 +1356,14 @@ console.log(
 "✅ Part 3 Loaded"
 );
 // ================================
-// FINAL REPLACE INDEX.JS - PART 4
-// CALLBACK + FINAL SYSTEM
+// FINAL INDEX.JS - PART 4
+// CALLBACK + FINAL
 // ================================
-
-
-// ================================
-// GOOGLE BUTTON
-// ================================
-
-function googleSearchButton(id){
-
-return {
-
-inline_keyboard:[
-
-[
-{
-text:"🔎 Google Search",
-url:
-`https://www.google.com/search?q=${encodeURIComponent(id)}`
-}
-
-],
-
-[
-{
-text:"🎬 Request Movie",
-url:
-`https://t.me/${ADMIN_BOT}`
-}
-
-]
-
-]
-
-};
-
-}
-
-
 
 
 
 // ================================
-// CALLBACK HANDLER
+// QUALITY CALLBACK
 // ================================
 
 bot.on(
@@ -1371,9 +1383,7 @@ query.message.chat.id;
 
 
 
-
 // YEAR SELECT
-
 
 if(
 data.startsWith("year_")
@@ -1384,7 +1394,7 @@ let parts =
 data.split("_");
 
 
-let id =
+let movieId =
 parts[1];
 
 
@@ -1397,7 +1407,7 @@ await bot.editMessageText(
 
 `
 
-📅 Year Selected:
+📅 Year:
 ${year}
 
 
@@ -1414,8 +1424,10 @@ chat_id:chatId,
 message_id:
 query.message.message_id,
 
+parse_mode:"HTML",
+
 reply_markup:
-qualityButtons(id)
+qualityButtons(movieId)
 
 }
 
@@ -1438,13 +1450,12 @@ return;
 
 // QUALITY SELECT
 
-
 if(
 data.startsWith("quality_")
 ){
 
 
-let id =
+let movieId =
 data.replace(
 "quality_",
 ""
@@ -1452,10 +1463,11 @@ data.replace(
 
 
 
-// ALWAYS GET 720p
+
+// ALWAYS SEND 720p
 
 let movie =
-await get720File(id);
+await get720File(movieId);
 
 
 
@@ -1493,6 +1505,7 @@ chatId,
 "⏳ Fetching your file..."
 
 );
+
 
 
 
@@ -1537,73 +1550,6 @@ return;
 
 
 
-// EPISODE BUTTON
-
-if(
-data.startsWith("episode_")
-){
-
-
-let epId =
-data.replace(
-"episode_",
-""
-);
-
-
-
-let result =
-await pool.query(
-
-`
-
-SELECT *
-FROM series
-WHERE id=$1
-
-`
-
-,
-
-[
-epId
-]
-
-);
-
-
-
-if(result.rows.length){
-
-
-let ep =
-result.rows[0];
-
-
-await sendFile(
-
-chatId,
-
-ep
-
-);
-
-
-}
-
-
-
-await bot.answerCallbackQuery(
-query.id
-);
-
-
-return;
-
-}
-
-
-
 }catch(err){
 
 
@@ -1623,6 +1569,7 @@ err.message
 
 
 
+
 // ================================
 // POLLING ERROR
 // ================================
@@ -1631,10 +1578,12 @@ bot.on(
 "polling_error",
 (error)=>{
 
+
 console.log(
 "Polling Error:",
 error.message
 );
+
 
 });
 
@@ -1642,22 +1591,22 @@ error.message
 
 
 
+
 // ================================
-// GLOBAL ERROR
+// GLOBAL ERRORS
 // ================================
 
 process.on(
 "unhandledRejection",
 (err)=>{
 
-
 console.log(
-"Unhandled:",
+"Unhandled Error:",
 err.message
 );
 
-
 });
+
 
 
 
@@ -1665,12 +1614,10 @@ process.on(
 "uncaughtException",
 (err)=>{
 
-
 console.log(
-"Crash:",
+"Crash Error:",
 err.message
 );
-
 
 });
 
@@ -1678,15 +1625,17 @@ err.message
 
 
 
+
+
 // ================================
-// RENDER KEEP ALIVE
+// RENDER KEEP ALIVE LOG
 // ================================
 
 setInterval(()=>{
 
 
 console.log(
-"🟢 CineXClub Alive",
+"🟢 CineXClub Bot Alive",
 new Date()
 );
 

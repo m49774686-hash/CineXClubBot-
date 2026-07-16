@@ -1,6 +1,6 @@
 // ================================
 // CINEXCLUB BOT
-// FINAL INDEX.JS - PART 1
+// FINAL UPDATED INDEX.JS - PART 1
 // ================================
 
 require("dotenv").config();
@@ -39,7 +39,6 @@ const ADMIN_BOT =
 
 
 
-
 // ================================
 // BOT START
 // ================================
@@ -51,13 +50,13 @@ polling:{
 interval:300,
 autoStart:true
 }
-});
-
+}
+);
 
 
 
 // ================================
-// POSTGRESQL
+// DATABASE
 // ================================
 
 const pool = new Pool({
@@ -73,10 +72,8 @@ rejectUnauthorized:false
 
 
 
-
-
 // ================================
-// RENDER KEEP ALIVE
+// KEEP ALIVE
 // ================================
 
 http.createServer(
@@ -85,7 +82,7 @@ http.createServer(
 res.writeHead(200);
 
 res.end(
-"CineXClub Bot Running"
+"CineXClub Running"
 );
 
 }
@@ -93,7 +90,6 @@ res.end(
 ).listen(
 process.env.PORT || 3000
 );
-
 
 
 
@@ -163,7 +159,7 @@ created_at TIMESTAMP DEFAULT NOW()
 
 await pool.query(`
 
-CREATE INDEX IF NOT EXISTS movie_search
+CREATE INDEX IF NOT EXISTS movie_index
 
 ON movies(movie_id);
 
@@ -174,7 +170,7 @@ ON movies(movie_id);
 
 await pool.query(`
 
-CREATE INDEX IF NOT EXISTS series_search
+CREATE INDEX IF NOT EXISTS series_index
 
 ON series(series_id);
 
@@ -182,9 +178,8 @@ ON series(series_id);
 
 
 
-
 console.log(
-"✅ Database Connected"
+"✅ Database Ready"
 );
 
 
@@ -198,7 +193,6 @@ err.message
 
 }
 
-
 }
 
 
@@ -209,7 +203,7 @@ initDatabase();
 
 
 // ================================
-// FORCE JOIN
+// FORCE JOIN CHECK
 // ================================
 
 async function isJoined(userId){
@@ -226,6 +220,7 @@ await bot.getChatMember(
 FORCE_CHANNEL,
 userId
 );
+
 
 
 return [
@@ -249,7 +244,6 @@ err.message
 
 return false;
 
-
 }
 
 }
@@ -259,7 +253,7 @@ return false;
 
 
 // ================================
-// WELCOME MESSAGE
+// WELCOME
 // ================================
 
 function welcome(user){
@@ -310,26 +304,19 @@ return {
 
 inline_keyboard:[
 
-
 [
 {
 text:"🎬 Request Movie",
-url:
-"https://t.me/CineXClubBot_Adminbot"
+url:"https://t.me/CineXClubBot_Adminbot"
 }
-
 ],
-
 
 [
 {
 text:"📢 Join Channel",
-url:
-"https://t.me/CineXClub"
+url:"https://t.me/CineXClub"
 }
-
 ]
-
 
 ]
 
@@ -340,10 +327,10 @@ url:
 
 
 console.log(
-"✅ Part 1 Loaded"
+"✅ Updated Part 1 Loaded"
 );
 // ================================
-// FINAL INDEX.JS - PART 2
+// FINAL UPDATED INDEX.JS - PART 2
 // STORAGE UPLOAD SYSTEM
 // ================================
 
@@ -380,14 +367,12 @@ VALUES($1,$2,$3,$4,$5,$6)
 ,
 
 [
-
 data.movie_id,
 data.title,
 data.year,
 data.language,
 data.quality,
 data.file_id
-
 ]
 
 );
@@ -446,14 +431,12 @@ VALUES($1,$2,$3,$4,$5,$6)
 ,
 
 [
-
 data.series_id,
 data.season,
 data.episode,
 data.title,
 data.quality,
 data.file_id
-
 ]
 
 );
@@ -472,7 +455,6 @@ err.message
 
 
 return false;
-
 
 }
 
@@ -497,7 +479,7 @@ return `https://t.me/${BOT_USERNAME}?start=${id}`;
 
 
 // ================================
-// PRIVATE STORAGE UPLOAD
+// STORAGE CHANNEL UPLOAD
 // ================================
 
 
@@ -510,7 +492,7 @@ try{
 
 
 console.log(
-"📩 CHANNEL POST:",
+"📩 CHANNEL:",
 msg.chat.id
 );
 
@@ -528,7 +510,8 @@ return;
 
 
 
-// DOCUMENT + VIDEO SUPPORT
+
+// FILE SUPPORT
 
 let fileId = null;
 
@@ -539,7 +522,6 @@ if(msg.document){
 fileId =
 msg.document.file_id;
 
-
 }
 
 else if(msg.video){
@@ -547,18 +529,18 @@ else if(msg.video){
 fileId =
 msg.video.file_id;
 
-
 }
 
 else{
 
 console.log(
-"❌ No File"
+"❌ No File Found"
 );
 
 return;
 
 }
+
 
 
 
@@ -582,7 +564,8 @@ return;
 
 
 
-// FIRST LINE AS TITLE
+
+// TITLE FIRST LINE
 
 let title =
 caption
@@ -593,6 +576,8 @@ caption
 
 
 
+// MOVIE ID
+
 let movieId =
 title
 .replace(/\s+/g,"")
@@ -602,7 +587,40 @@ title
 
 
 
-// QUALITY (DEFAULT 720)
+// YEAR FROM CAPTION
+
+let year =
+caption.match(
+/\b(19|20)\d{2}\b/
+);
+
+
+year =
+year ?
+year[0]
+:
+"";
+
+
+
+
+
+// LANGUAGE
+
+let language =
+caption
+.split("\n")
+.find(x =>
+x.includes("+")
+)
+||
+"Unknown";
+
+
+
+
+
+// QUALITY
 
 let quality =
 caption.match(
@@ -612,25 +630,10 @@ caption.match(
 
 quality =
 quality ?
-quality[1]:
+quality[1]
+:
 "720p";
 
-
-
-
-
-// YEAR
-
-let year =
-caption.match(
-/(19|20)\d{2}/
-);
-
-
-year =
-year ?
-year[0]:
-"";
 
 
 
@@ -659,6 +662,7 @@ let isSeries =
 if(isSeries){
 
 
+
 let season =
 caption.match(
 /s\d+/i
@@ -675,8 +679,7 @@ caption.match(
 
 await saveSeries({
 
-series_id:
-movieId,
+series_id:movieId,
 
 
 season:
@@ -741,8 +744,7 @@ else{
 
 await saveMovie({
 
-movie_id:
-movieId,
+movie_id:movieId,
 
 
 title:title,
@@ -751,8 +753,7 @@ title:title,
 year:year,
 
 
-language:
-"Unknown",
+language:language,
 
 
 quality:"720p",
@@ -761,6 +762,7 @@ quality:"720p",
 file_id:fileId
 
 });
+
 
 
 
@@ -817,17 +819,17 @@ err.message
 }
 
 
-
 });
 
 
 
 
+
 console.log(
-"✅ Part 2 Loaded"
+"✅ Updated Part 2 Loaded"
 );
 // ================================
-// FINAL INDEX.JS - PART 3
+// FINAL UPDATED INDEX.JS - PART 3
 // START SYSTEM
 // ================================
 
@@ -884,10 +886,10 @@ return null;
 
 
 // ================================
-// GET 720P FILE
+// GET FILE
 // ================================
 
-async function get720File(id){
+async function getFile(id){
 
 try{
 
@@ -899,7 +901,6 @@ await pool.query(
 SELECT *
 FROM movies
 WHERE movie_id=$1
-AND quality='720p'
 LIMIT 1
 `
 
@@ -919,7 +920,7 @@ return result.rows[0] || null;
 
 
 console.log(
-"Get 720 Error:",
+"Get File Error:",
 err.message
 );
 
@@ -935,10 +936,11 @@ return null;
 
 
 // ================================
-// CAPTION
+// CAPTION WITH SELECTED QUALITY
 // ================================
 
-function premiumCaption(movie){
+function premiumCaption(movie,selectedQuality){
+
 
 return `
 
@@ -951,7 +953,7 @@ ${movie.year || "N/A"}
 
 
 🎞 Quality:
-720p
+${selectedQuality}
 
 
 🌐 Language:
@@ -969,11 +971,13 @@ ${movie.language || "Unknown"}
 
 
 
+
 // ================================
-// YEAR BUTTONS
+// YEAR BUTTON
 // ================================
 
-function yearButtons(id){
+function yearButton(id,year){
+
 
 return {
 
@@ -981,26 +985,8 @@ inline_keyboard:[
 
 [
 {
-text:"📅 2026",
-callback_data:`year_${id}_2026`
-},
-
-{
-text:"📅 2025",
-callback_data:`year_${id}_2025`
-}
-
-],
-
-[
-{
-text:"📅 2024",
-callback_data:`year_${id}_2024`
-},
-
-{
-text:"📅 2023",
-callback_data:`year_${id}_2023`
+text:`📅 ${year}`,
+callback_data:`year_${id}`
 }
 
 ]
@@ -1021,24 +1007,26 @@ callback_data:`year_${id}_2023`
 
 function qualityButtons(id){
 
+
 return {
 
 inline_keyboard:[
 
 [
+
 {
 text:"🎞 480p",
-callback_data:`quality_${id}`
+callback_data:`quality_${id}_480p`
 },
 
 {
 text:"🎞 720p",
-callback_data:`quality_${id}`
+callback_data:`quality_${id}_720p`
 },
 
 {
 text:"🎞 1080p",
-callback_data:`quality_${id}`
+callback_data:`quality_${id}_1080p`
 }
 
 ]
@@ -1046,80 +1034,6 @@ callback_data:`quality_${id}`
 ]
 
 };
-
-}
-
-
-
-
-
-// ================================
-// SEND FILE
-// ================================
-
-async function sendFile(chatId,movie){
-
-try{
-
-
-let sent =
-await bot.sendDocument(
-
-chatId,
-
-movie.file_id,
-
-{
-
-caption:
-premiumCaption(movie),
-
-parse_mode:"HTML"
-
-}
-
-);
-
-
-
-// AUTO DELETE 10 MIN
-
-setTimeout(async()=>{
-
-
-try{
-
-await bot.deleteMessage(
-
-chatId,
-
-sent.message_id
-
-);
-
-
-console.log(
-"✅ Deleted after 10 minutes"
-);
-
-
-}catch(e){}
-
-
-},600000);
-
-
-
-}catch(err){
-
-
-console.log(
-"Send File Error:",
-err.message
-);
-
-
-}
 
 }
 
@@ -1147,6 +1061,7 @@ msg.chat.id;
 
 let user =
 msg.from;
+
 
 
 
@@ -1195,9 +1110,7 @@ await bot.sendMessage(
 
 chatId,
 
-`
-⚠️ Please Join Our Channel First
-`
+"⚠️ Please Join Our Channel First"
 
 );
 
@@ -1212,9 +1125,10 @@ return;
 
 let id =
 match[1]
-.replace("movieid:","")
+.replace(/^movieid:/i,"")
 .trim()
 .toLowerCase();
+
 
 
 
@@ -1236,10 +1150,11 @@ chatId,
 
 ❌ <b>Video Not Found</b>
 
+Select option 👇
 
-Select an option below 👇
+`
 
-`,
+,
 
 {
 
@@ -1250,7 +1165,6 @@ reply_markup:{
 inline_keyboard:[
 
 [
-
 {
 text:"🔎 Google Search",
 url:
@@ -1260,23 +1174,19 @@ url:
 ],
 
 [
-
 {
 text:"🎬 Request Movie",
 url:
 "https://t.me/CineXClubBot_Adminbot"
 }
-
 ],
 
 [
-
 {
 text:"📢 Join Channel",
 url:
 "https://t.me/CineXClub"
 }
-
 ]
 
 ]
@@ -1296,6 +1206,10 @@ return;
 
 
 
+
+
+// SHOW UPLOADED YEAR ONLY
+
 await bot.sendMessage(
 
 chatId,
@@ -1305,7 +1219,12 @@ chatId,
 🎬 <b>${movie.title}</b>
 
 
-📅 Select Year 👇
+📅 Year:
+
+${movie.year || "N/A"}
+
+
+Select Quality 👇
 
 `
 
@@ -1316,11 +1235,14 @@ chatId,
 parse_mode:"HTML",
 
 reply_markup:
-yearButtons(id)
+qualityButtons(id)
 
 }
 
 );
+
+
+
 
 
 
@@ -1331,7 +1253,6 @@ console.log(
 "Start Error:",
 err.message
 );
-
 
 
 await bot.sendMessage(
@@ -1353,17 +1274,94 @@ msg.chat.id,
 
 
 console.log(
-"✅ Part 3 Loaded"
+"✅ Updated Part 3 Loaded"
 );
 // ================================
-// FINAL INDEX.JS - PART 4
-// CALLBACK + FINAL
+// FINAL UPDATED INDEX.JS - PART 4
+// CALLBACK + FINAL SYSTEM
 // ================================
 
 
 
 // ================================
-// QUALITY CALLBACK
+// SEND FILE
+// ================================
+
+async function sendFile(chatId,movie,selectedQuality){
+
+
+try{
+
+
+let sent =
+await bot.sendDocument(
+
+chatId,
+
+movie.file_id,
+
+{
+
+caption:
+premiumCaption(movie,selectedQuality),
+
+parse_mode:"HTML"
+
+}
+
+);
+
+
+
+
+// AUTO DELETE 10 MINUTES
+
+setTimeout(async()=>{
+
+
+try{
+
+
+await bot.deleteMessage(
+
+chatId,
+
+sent.message_id
+
+);
+
+
+console.log(
+"✅ File Deleted After 10 Minutes"
+);
+
+
+}catch(e){}
+
+
+},600000);
+
+
+
+}catch(err){
+
+
+console.log(
+"Send File Error:",
+err.message
+);
+
+
+}
+
+}
+
+
+
+
+
+// ================================
+// CALLBACK QUERY
 // ================================
 
 bot.on(
@@ -1383,10 +1381,11 @@ query.message.chat.id;
 
 
 
-// YEAR SELECT
+// QUALITY SELECT
+
 
 if(
-data.startsWith("year_")
+data.startsWith("quality_")
 ){
 
 
@@ -1398,76 +1397,15 @@ let movieId =
 parts[1];
 
 
-let year =
+let selectedQuality =
 parts[2];
 
 
 
-await bot.editMessageText(
 
-`
-
-📅 Year:
-${year}
-
-
-🎞 Select Quality 👇
-
-`
-
-,
-
-{
-
-chat_id:chatId,
-
-message_id:
-query.message.message_id,
-
-parse_mode:"HTML",
-
-reply_markup:
-qualityButtons(movieId)
-
-}
-
-);
-
-
-
-await bot.answerCallbackQuery(
-query.id
-);
-
-
-return;
-
-}
-
-
-
-
-
-// QUALITY SELECT
-
-if(
-data.startsWith("quality_")
-){
-
-
-let movieId =
-data.replace(
-"quality_",
-""
-);
-
-
-
-
-// ALWAYS SEND 720p
 
 let movie =
-await get720File(movieId);
+await getFile(movieId);
 
 
 
@@ -1480,8 +1418,7 @@ query.id,
 
 {
 
-text:
-"❌ 720p file not found",
+text:"❌ File Not Found",
 
 show_alert:true
 
@@ -1497,6 +1434,9 @@ return;
 
 
 
+
+// FETCHING
+
 let loading =
 await bot.sendMessage(
 
@@ -1505,7 +1445,6 @@ chatId,
 "⏳ Fetching your file..."
 
 );
-
 
 
 
@@ -1527,7 +1466,9 @@ await sendFile(
 
 chatId,
 
-movie
+movie,
+
+selectedQuality
 
 );
 
@@ -1537,15 +1478,16 @@ movie
 
 
 
+
 await bot.answerCallbackQuery(
 query.id
 );
 
 
+
 return;
 
 }
-
 
 
 
@@ -1569,7 +1511,6 @@ err.message
 
 
 
-
 // ================================
 // POLLING ERROR
 // ================================
@@ -1578,12 +1519,10 @@ bot.on(
 "polling_error",
 (error)=>{
 
-
 console.log(
 "Polling Error:",
 error.message
 );
-
 
 });
 
@@ -1593,17 +1532,19 @@ error.message
 
 
 // ================================
-// GLOBAL ERRORS
+// GLOBAL ERROR
 // ================================
 
 process.on(
 "unhandledRejection",
 (err)=>{
 
+
 console.log(
 "Unhandled Error:",
 err.message
 );
+
 
 });
 
@@ -1614,10 +1555,12 @@ process.on(
 "uncaughtException",
 (err)=>{
 
+
 console.log(
 "Crash Error:",
 err.message
 );
+
 
 });
 
@@ -1626,9 +1569,8 @@ err.message
 
 
 
-
 // ================================
-// RENDER KEEP ALIVE LOG
+// RENDER KEEP ALIVE
 // ================================
 
 setInterval(()=>{
@@ -1647,5 +1589,5 @@ new Date()
 
 
 console.log(
-"🎬 CineXClub Final Loaded Successfully"
+"🎬 CineXClub Final Updated Loaded Successfully"
 );

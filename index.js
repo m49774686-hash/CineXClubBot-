@@ -112,7 +112,7 @@ http.createServer((req, res) => {
 });
 
 // ================================
-// SAVE MOVIE / SERIES FUNCTIONS (YOUR ORIGINAL)
+// SAVE MOVIE / SERIES FUNCTIONS
 // ================================
 async function saveMovie(data) {
     try {
@@ -152,7 +152,7 @@ async function saveEpisode(data) {
 }
 
 // ================================
-// METADATA PARSER (YOUR ORIGINAL)
+// METADATA PARSER
 // ================================
 function getMeta(text) {
     let data = {
@@ -184,7 +184,7 @@ function getMeta(text) {
 }
 
 // ================================
-// STORAGE CHANNEL UPLOAD (YOUR ORIGINAL)
+// STORAGE CHANNEL UPLOAD
 // ================================
 bot.on("channel_post", async (msg) => {
     if (msg.chat.id.toString() !== STORAGE_CHANNEL) return;
@@ -253,7 +253,7 @@ async function checkJoin(userId) {
 }
 
 // ================================
-// GET FROM DB FUNCTIONS (YOUR ORIGINAL)
+// GET FROM DB FUNCTIONS
 // ================================
 async function getMovie(id) {
     try {
@@ -282,7 +282,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const firstName = msg.from.first_name || "User";
-    const id = match ? match[1].trim().toLowerCase() : "";
+    const id = match[1] ? match[1].trim().toLowerCase() : "";
 
     // 1. Normal Start Dashboard
     if (!id) {
@@ -292,4 +292,5 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 [{ text: "🎁 Request Movie & Series", url: ADMIN_LINK }]
             ]
         };
-        
+        const welcomeMsg = `🌟 **స్వాగతం ${firstName}!** 🌟\n\n` +
+            

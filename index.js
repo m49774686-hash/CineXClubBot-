@@ -3146,3 +3146,724 @@ console.log(
 // ============================================
 // END PART 6/8
 // ============================================
+// ============================================
+// PART 7/8
+// STABILITY + DATABASE OPTIMIZATION
+// ============================================
+
+
+
+// ============================================
+// CREATE INDEXES (FIXED)
+// ============================================
+
+async function createIndexes(){
+
+
+try{
+
+
+await pool.query(`
+
+CREATE INDEX IF NOT EXISTS content_id_index
+
+ON contents(content_id)
+
+`);
+
+
+
+await pool.query(`
+
+CREATE INDEX IF NOT EXISTS collection_index
+
+ON contents(collection)
+
+`);
+
+
+
+await pool.query(`
+
+CREATE INDEX IF NOT EXISTS type_index
+
+ON contents(type)
+
+`);
+
+
+
+await pool.query(`
+
+CREATE INDEX IF NOT EXISTS username_index
+
+ON users(username)
+
+`);
+
+
+
+console.log(
+"✅ Indexes Created"
+);
+
+
+
+}catch(err){
+
+
+console.log(
+
+"Index Error:",
+
+err.message
+
+);
+
+
+
+}
+
+
+
+}
+
+
+
+createIndexes();
+
+
+
+
+
+
+
+
+
+// ============================================
+// AUTO DELETE QUEUE
+// ============================================
+
+const deleteQueue=[];
+
+
+
+function addDelete(chatId,messageId){
+
+
+deleteQueue.push({
+
+chatId,
+
+messageId,
+
+time:
+
+Date.now()+600000
+
+});
+
+
+}
+
+
+
+
+
+setInterval(()=>{
+
+
+let now =
+Date.now();
+
+
+
+for(
+
+let i=deleteQueue.length-1;
+
+i>=0;
+
+i--
+
+){
+
+
+if(
+
+deleteQueue[i].time <= now
+
+){
+
+
+bot.deleteMessage(
+
+deleteQueue[i].chatId,
+
+deleteQueue[i].messageId
+
+)
+
+.catch(()=>{});
+
+
+
+deleteQueue.splice(
+
+i,
+
+1
+
+);
+
+
+
+}
+
+
+
+}
+
+
+
+},30000);
+
+
+
+
+
+
+
+
+
+// ============================================
+// OVERRIDE AUTO DELETE
+// ============================================
+
+function autoDelete(chatId,messageId){
+
+
+addDelete(
+
+chatId,
+
+messageId
+
+);
+
+
+}
+
+
+
+
+
+
+
+
+
+
+// ============================================
+// ERROR HANDLING
+// ============================================
+
+
+bot.on(
+
+"polling_error",
+
+(err)=>{
+
+
+console.log(
+
+"Polling Error:",
+
+err.message
+
+);
+
+
+
+});
+
+
+
+
+
+
+process.on(
+
+"unhandledRejection",
+
+(err)=>{
+
+
+console.log(
+
+"Unhandled Error:",
+
+err.message
+
+);
+
+
+
+});
+
+
+
+
+
+
+process.on(
+
+"uncaughtException",
+
+(err)=>{
+
+
+console.log(
+
+"Crash Error:",
+
+err.message
+
+);
+
+
+
+});
+
+
+
+
+
+
+
+
+
+// ============================================
+// DATABASE HEALTH CHECK
+// ============================================
+
+setInterval(async()=>{
+
+
+try{
+
+
+await pool.query(
+
+"SELECT 1"
+
+);
+
+
+
+console.log(
+
+"💾 Database OK"
+
+);
+
+
+
+}catch(err){
+
+
+console.log(
+
+"Database Lost"
+
+);
+
+
+
+}
+
+
+
+},300000);
+
+
+
+
+
+
+
+
+
+
+console.log(
+"✅ Part 7 Loaded"
+);
+
+
+// ============================================
+// END PART 7/8
+// ============================================
+// ============================================
+// PART 8/8
+// FINAL STARTUP SYSTEM
+// ============================================
+
+
+
+// ============================================
+// MENU COMMAND
+// ============================================
+
+bot.onText(
+
+/\/menu/,
+
+(msg)=>{
+
+
+bot.sendMessage(
+
+msg.chat.id,
+
+`
+
+🎬 CineXClub Menu
+
+
+Choose Category:
+
+`
+
+,
+
+{
+
+reply_markup:{
+
+inline_keyboard:[
+
+
+[
+
+{
+
+text:"🎬 Movies",
+
+callback_data:"type_Movie"
+
+},
+
+{
+
+text:"📺 Series",
+
+callback_data:"type_Series"
+
+}
+
+],
+
+
+[
+
+{
+
+text:"🔥 Anime",
+
+callback_data:"type_Anime"
+
+}
+
+]
+
+
+]
+
+}
+
+}
+
+);
+
+
+
+}
+
+);
+
+
+
+
+
+
+
+
+// ============================================
+// HELP COMMAND
+// ============================================
+
+bot.onText(
+
+/\/help/,
+
+(msg)=>{
+
+
+bot.sendMessage(
+
+msg.chat.id,
+
+`
+
+🎬 CineXClub Bot
+
+
+Commands:
+
+
+/start
+
+Open Bot
+
+
+/menu
+
+Browse Movies
+
+
+/search movie name
+
+Search Movies
+
+
+
+Features:
+
+✅ Movies
+
+✅ Collections
+
+✅ Series
+
+✅ Anime
+
+✅ Seasons
+
+✅ Episodes
+
+✅ Quality Selection
+
+✅ Auto Delete
+
+
+`
+
+);
+
+
+
+}
+
+);
+
+
+
+
+
+
+
+
+
+// ============================================
+// PING
+// ============================================
+
+bot.onText(
+
+/\/ping/,
+
+(msg)=>{
+
+
+bot.sendMessage(
+
+msg.chat.id,
+
+"🏓 Bot is Online"
+
+);
+
+
+}
+
+);
+
+
+
+
+
+
+
+
+// ============================================
+// BOT INFORMATION
+// ============================================
+
+bot.getMe()
+
+.then(info=>{
+
+
+console.log(`
+
+================================
+
+🎬 CineXClub Bot Online
+
+
+Username:
+
+@${info.username}
+
+
+================================
+
+`);
+
+
+})
+
+.catch(err=>{
+
+
+console.log(
+
+"Bot Start Error:",
+
+err.message
+
+);
+
+
+});
+
+
+
+
+
+
+
+
+
+// ============================================
+// GRACEFUL SHUTDOWN
+// ============================================
+
+async function shutdown(){
+
+
+console.log(
+
+"🛑 Closing Bot..."
+
+);
+
+
+
+try{
+
+
+await pool.end();
+
+
+
+}catch(err){}
+
+
+
+process.exit(0);
+
+
+}
+
+
+
+
+
+
+process.on(
+
+"SIGINT",
+
+shutdown
+
+);
+
+
+
+process.on(
+
+"SIGTERM",
+
+shutdown
+
+);
+
+
+
+
+
+
+
+
+
+// ============================================
+// FINAL STATUS
+// ============================================
+
+console.log(`
+
+====================================
+
+🎬 CineXClub Bot Started
+
+
+✅ Movies
+
+✅ Collections
+
+✅ Series
+
+✅ Anime
+
+✅ Unlimited Seasons
+
+✅ Unlimited Episodes
+
+✅ Quality Selection
+
+✅ Force Join
+
+✅ Google Search
+
+✅ Request Movie
+
+✅ Contact Admin
+
+✅ Auto Delete 10 Minutes
+
+✅ PostgreSQL
+
+✅ Render Ready
+
+
+====================================
+
+`);
+
+
+
+
+// ============================================
+// END FINAL INDEX.JS
+// ============================================

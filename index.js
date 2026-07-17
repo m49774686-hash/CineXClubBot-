@@ -649,28 +649,85 @@ return false;
 // STORAGE CHANNEL LISTENER
 // ============================================
 
-bot.on(
 
-"channel_post",
+// ================================
+// STORAGE CHANNEL UPLOAD
+// ================================
+bot.on("channel_post", async (msg) => {
+    // అప్‌లోడ్ పోస్ట్ రాగానే లాగ్స్ లో చూపిస్తుంది
+    console.log(`\n📢 [NEW POST] స్టోరేజ్ ఛానల్ నుండి ఒక పోస్ట్ వచ్చింది! Message ID: ${msg.message_id}`);
 
-async(msg)=>{
+    if (msg.chat.id.toString() !== STORAGE_CHANNEL) {
+        console.log(`⚠️ [IGNORED] ఈ మెసేజ్ వేరే ఛానల్ (${msg.chat.id}) నుండి వచ్చింది, కాబట్టి ఇగ్నోర్ చేయబడింది.`);
+        return;
+    }
+    if (!msg.video && !msg.document) {
+        console.log("❌ [SKIPPED] వచ్చిన పోస్ట్‌లో వీడియో లేదా డాక్యుమెంట్ ఫైల్ లేదు.");
+        return;
+    }
+    if (!msg.caption) {
+        console.log("❌ [FAILED] ఫైల్‌కు క్యాప్షన్ (Caption) లేదు. డేటాబేస్‌లో సేవ్ చేయడం కుదరదు.");
+        return;
+    }
 
+    const file_id = msg.video ? msg.video.file_id : msg.document.file_id;
+    const caption = msg.caption.trim();
+    
+    console.log(`📝 [PROCESSING] క్యాప్షన్ టెక్స్ట్: "${caption}"`);
+    const meta = getMeta(caption);
+    console.log(`⚙️ [PARSED META] క్వాలిటీ: ${meta.quality} | ఆడియో: ${meta.audio} | సైజ్: ${meta.size} | ఇయర్: ${meta.year}`);
 
-try{
+    // SERIES UPLOAD LOGIC
+    if (/SeriesID:/i.test(caption) && /Episode:/i.test(caption)) {
+        console.log("📺 [DETECTED] ఇది వెబ్ సిరీస్ ఫైల్.");
+        const series_id = caption.match(/SeriesID:\s*(.+)/i)[1].trim().toLowerCase();
+        const episode = caption.match(/Episode:\s*(.+)/i)[1].trim();
+        let season = "S01";
+        if (/Season:/i.test(caption)) {
+            season = caption.match(/Season:\s*(.+)/i)[1].trim();
+        }
 
+        console.log(`⏳ [SAVING] సిరీస్ ID: ${series_id}, సీజన్: ${season}, ఎపిసోడ్: ${episode} డేటాబేస్‌లో సేవ్ అవుతోంది...`);
+        const saved = await saveEpisode({
+            series_id, season, episode, title: series_id,
+            quality: meta.quality, audio: meta.audio, size: meta.size, language: meta.language, file_id
+        });
 
-console.log(
-"CHANNEL POST:",
-msg.chat.id
-);
-console.log("===== STORAGE UPLOAD =====");
-console.log("Channel ID:", msg.chat.id);
-console.log("ENV STORAGE_CHANNEL:", STORAGE_CHANNEL);
-console.log("Document:", !!msg.document);
-console.log("Video:", !!msg.video);
-console.log("Caption:", msg.caption);
+        if (saved) {
+            const link = `https://t.me{BOT_USERNAME}?start=${series_id}`;
+            console.log(`✅ [SUCCESS] సిరీస్ ఎపిసోడ్ డేటాబేస్‌లో పక్కాగా సేవ్ అయింది! బోట్ లింక్: ${link}`);
+            await bot.sendMessage(msg.chat.id, `✅ Episode Saved Successfully\n\n📺 Series: ${series_id}\n🎬 Episode: ${episode}\n🔗 Link:\n${link}`);
+        } else {
+            console.log("❌ [ERROR] సిరీస్ ఫైల్ డేటాబేస్‌లో సేవ్ చేయడంలో లోపం జరిగింది.");
+        }
+        return;
+    }
 
+    // MOVIE UPLOAD LOGIC
+    console.log("🎬 [DETECTED] ఇది మూవీ ఫైల్.");
+    let movie_id;
+    if (/MovieID:/i.test(caption)) {
+        movie_id = caption.match(/MovieID:\s*(.+)/i)[1];
+    } else {
+        movie_id = caption;
+    }
+    movie_id = movie_id.replace(/\s+/g, "").toLowerCase();
 
+    console.log(`⏳ [SAVING] మూవీ ID: ${movie_id} డేటాబేస్‌లో సేవ్ అవుతోంది...`);
+    const saved = await saveMovie({
+        movie_id, title: movie_id, year: meta.year,
+        quality: meta.quality, audio: meta.audio, size: meta.size, language: meta.language, file_id
+    });
+
+    if (saved) {
+        const link = `https://t.me{BOT_USERNAME}?start=${movie_id}`;
+        console.log(`✅ [SUCCESS] మూవీ డేటాబేస్‌లో పక్కాగా సేవ్ అయింది! బోట్ లింక్: ${link}`);
+        await bot.sendMessage(msg.chat.id, `✅ Movie Saved Successfully\n\n🎬 ID: ${movie_id}\n🔗 Bot Link:\n${link}`);
+    } else {
+        console.log("❌ [ERROR] మూవీ ఫైల్ డేటాబేస్‌లో సేవ్ చేయడంలో లోపం జరిగింది.");
+    }
+});
+      
 
 if(
 String(msg.chat.id)

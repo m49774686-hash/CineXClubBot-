@@ -663,13 +663,12 @@ console.log(
 "CHANNEL POST:",
 msg.chat.id
 );
-console.log("================================");
+console.log("===== STORAGE UPLOAD =====");
 console.log("Channel ID:", msg.chat.id);
 console.log("ENV STORAGE_CHANNEL:", STORAGE_CHANNEL);
+console.log("Document:", !!msg.document);
+console.log("Video:", !!msg.video);
 console.log("Caption:", msg.caption);
-console.log("Has Document:", !!msg.document);
-console.log("Has Video:", !!msg.video);
-console.log("================================");
 
 
 

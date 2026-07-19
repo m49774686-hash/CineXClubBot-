@@ -15,121 +15,84 @@ const http = require("http");
 // ======================
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-
 const DATABASE_URL = process.env.DATABASE_URL;
-
-const BOT_USERNAME =
-process.env.BOT_USERNAME || "CineXClubBot";
-
-const STORAGE_CHANNEL =
-process.env.STORAGE_CHANNEL;
-
-const FORCE_CHANNEL =
-process.env.FORCE_CHANNEL;
-
-const ADMIN_USERNAME =
-process.env.ADMIN_USERNAME;
+const BOT_USERNAME = process.env.BOT_USERNAME;
+const STORAGE_CHANNEL = process.env.STORAGE_CHANNEL;
+const FORCE_CHANNEL = process.env.FORCE_CHANNEL;
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 
 // ======================
-// BOT
+// BOT START
 // ======================
 
-const bot = new TelegramBot(
-BOT_TOKEN,
-{
-polling:{
-autoStart:true,
-interval:300
-}
-}
-);
+const bot = new TelegramBot(BOT_TOKEN, {
+    polling: {
+        autoStart: true,
+        interval: 300
+    }
+});
+
+console.log("🎬 CineXClub Bot Starting...");
+
+// ======================
+// POSTGRESQL
+// ======================
+
+const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 
 // ======================
 // DATABASE
 // ======================
 
-const pool = new Pool({
+async function initDatabase() {
+    try {
 
-connectionString:DATABASE_URL,
-
-ssl:{
-rejectUnauthorized:false
-}
-
-});
-
-// ======================
-// DATABASE TABLES
-// ======================
-
-async function initDatabase(){
-
-try{
-
-await pool.query(`
+        await pool.query(`
 
 CREATE TABLE IF NOT EXISTS contents(
-
 id SERIAL PRIMARY KEY,
-
-content_id TEXT UNIQUE,
-
-title TEXT,
-
-type TEXT,
-
+content_id TEXT UNIQUE NOT NULL,
+title TEXT NOT NULL,
+type TEXT NOT NULL,
 collection TEXT,
-
 season INTEGER,
-
 episode INTEGER,
-
 quality TEXT,
-
 language TEXT,
-
 year TEXT,
-
 size TEXT,
-
-file_id TEXT,
-
+file_id TEXT NOT NULL,
 created_at TIMESTAMP DEFAULT NOW()
-
 );
 
 CREATE TABLE IF NOT EXISTS users(
-
 id SERIAL PRIMARY KEY,
-
 username TEXT UNIQUE,
-
 created_at TIMESTAMP DEFAULT NOW()
-
 );
 
 CREATE TABLE IF NOT EXISTS requests(
-
 id SERIAL PRIMARY KEY,
-
 username TEXT,
-
 request TEXT,
-
 created_at TIMESTAMP DEFAULT NOW()
-
 );
 
 `);
 
-console.log("✅ PostgreSQL Ready");
+        console.log("✅ PostgreSQL Connected");
 
-}catch(err){
+    } catch (err) {
 
-console.log(err.message);
+        console.log("Database Error:", err.message);
 
-}
-
+    }
 }
 
 initDatabase();
@@ -138,506 +101,435 @@ initDatabase();
 // KEEP ALIVE
 // ======================
 
-http.createServer((req,res)=>{
-
-res.writeHead(200);
-
-res.end("CineXClub Running");
-
+http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end("CineXClub Bot Running");
 }).listen(process.env.PORT || 3000);
 
 // ======================
 // RANDOM QUOTES
 // ======================
 
-const quotes=[
-
-"🍿 Enjoy Your Movie",
-
-"🎬 Entertainment Starts Here",
-
-"✨ Movies Never End",
-
-"❤️ Welcome To CineXClub",
-
-"🔥 Watch Unlimited Content"
-
+const quotes = [
+    "🎬 Entertainment Starts Here",
+    "🍿 Grab Your Popcorn",
+    "🔥 Unlimited Movies",
+    "📺 Watch Anytime",
+    "❤️ Welcome To CineXClub"
 ];
 
-function randomQuote(){
-
-return quotes[
-Math.floor(
-Math.random()*quotes.length
-)
-];
-
+function randomQuote() {
+    return quotes[Math.floor(Math.random() * quotes.length)];
 }
 
 // ======================
 // USERNAME
 // ======================
 
-function getUsername(user){
-
-if(user.username)
-return "@"+user.username;
-
-return user.first_name;
-
+function getUsername(user) {
+    if (user.username) return "@" + user.username;
+    return user.first_name || "User";
 }
 
 // ======================
 // SAVE USER
 // ======================
 
-async function saveUser(user){
+async function saveUser(user) {
 
-try{
+    try {
 
-await pool.query(
-
-`
+        await pool.query(
+            `
 INSERT INTO users(username)
-
 VALUES($1)
-
 ON CONFLICT(username)
-
 DO NOTHING
 `,
+            [getUsername(user)]
+        );
 
-[
-getUsername(user)
-]
-
-);
-
-}catch(err){}
+    } catch (err) {}
 
 }
 
 console.log("✅ PART 1 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 2/20
 // STORAGE CHANNEL SYSTEM
 // ===================================================
 
-// Parse Caption
+// ======================
+// PARSE CAPTION
+// ======================
 
-function parseCaption(caption){
+function parseCaption(caption) {
 
-let data={
+    const data = {
+        type: "Movie",
+        title: "",
+        collection: null,
+        season: null,
+        episode: null,
+        quality: "720p",
+        language: "Unknown",
+        year: "",
+        size: "",
+        content_id: null
+    };
 
-type:"Movie",
+    const lines = caption.split("\n");
 
-title:"",
+    for (const line of lines) {
 
-collection:null,
+        const parts = line.split(":");
 
-season:null,
+        if (parts.length < 2) continue;
 
-episode:null,
+        const key = parts[0].trim().toLowerCase();
+        const value = parts.slice(1).join(":").trim();
 
-quality:"720p",
+        switch (key) {
 
-language:"Unknown",
+            case "type":
+                data.type = value;
+                break;
 
-year:"",
+            case "title":
+                data.title = value;
+                break;
 
-size:"",
+            case "collection":
+                data.collection = value;
+                break;
 
-content_id:null
+            case "season":
+                data.season = parseInt(value);
+                break;
 
-};
+            case "episode":
+                data.episode = parseInt(value);
+                break;
 
-let lines=caption.split("\n");
+            case "quality":
+                data.quality = value;
+                break;
 
-for(let line of lines){
+            case "language":
+            case "audio":
+                data.language = value;
+                break;
 
-let parts=line.split(":");
+            case "year":
+                data.year = value;
+                break;
 
-if(parts.length<2) continue;
+            case "size":
+                data.size = value;
+                break;
 
-let key=parts[0].trim().toLowerCase();
+            case "id":
+                data.content_id = value.toLowerCase();
+                break;
+        }
+    }
 
-let value=parts.slice(1).join(":").trim();
+    if (!data.content_id) {
 
-switch(key){
+        data.content_id = data.title
+            .replace(/\s+/g, "")
+            .toLowerCase();
 
-case "type":
-data.type=value;
-break;
+        if (data.type !== "Movie") {
 
-case "title":
-data.title=value;
-break;
+            data.content_id += `_S${data.season}E${data.episode}`;
 
-case "collection":
-data.collection=value;
-break;
+        }
+    }
 
-case "season":
-data.season=parseInt(value);
-break;
-
-case "episode":
-data.episode=parseInt(value);
-break;
-
-case "quality":
-data.quality=value;
-break;
-
-case "audio":
-case "language":
-data.language=value;
-break;
-
-case "year":
-data.year=value;
-break;
-
-case "size":
-data.size=value;
-break;
-
-case "id":
-data.content_id=value.toLowerCase();
-break;
-
+    return data;
 }
 
-}
+// ======================
+// SAVE CONTENT
+// ======================
 
-if(!data.content_id){
+async function saveContent(data, fileId) {
 
-data.content_id=data.title
-.replace(/\s+/g,"")
-.toLowerCase();
+    try {
 
-if(data.type!="Movie"){
-
-data.content_id+=
-"_s"+data.season+
-"e"+data.episode;
-
-}
-
-}
-
-return data;
-
-}
-
-// Save Content
-
-async function saveContent(data,fileId){
-
-try{
-
-await pool.query(
-
-`
-
+        await pool.query(
+            `
 INSERT INTO contents(
-
 content_id,
-
 title,
-
 type,
-
 collection,
-
 season,
-
 episode,
-
 quality,
-
 language,
-
 year,
-
 size,
-
 file_id
-
 )
-
 VALUES(
-
 $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
-
 )
-
 ON CONFLICT(content_id)
-
 DO UPDATE SET
-
 quality=EXCLUDED.quality,
-
 language=EXCLUDED.language,
-
 year=EXCLUDED.year,
-
 size=EXCLUDED.size,
-
 file_id=EXCLUDED.file_id
-
 `,
+            [
+                data.content_id,
+                data.title,
+                data.type,
+                data.collection,
+                data.season,
+                data.episode,
+                data.quality,
+                data.language,
+                data.year,
+                data.size,
+                fileId
+            ]
+        );
 
-[
+        return true;
 
-data.content_id,
+    } catch (err) {
 
-data.title,
+        console.log("Save Error:", err.message);
+        return false;
 
-data.type,
-
-data.collection,
-
-data.season,
-
-data.episode,
-
-data.quality,
-
-data.language,
-
-data.year,
-
-data.size,
-
-fileId
-
-]
-
-);
-
-return true;
-
-}catch(err){
-
-console.log(err.message);
-
-return false;
-
+    }
 }
 
-}
+// ======================
+// STORAGE CHANNEL
+// ======================
 
-// Storage Upload
+bot.on("channel_post", async (msg) => {
 
-bot.on("channel_post",async(msg)=>{
+    try {
 
-try{
+        if (String(msg.chat.id) !== String(STORAGE_CHANNEL))
+            return;
 
-if(String(msg.chat.id)!==String(STORAGE_CHANNEL))
-return;
+        let fileId = null;
 
-let fileId=null;
+        if (msg.document)
+            fileId = msg.document.file_id;
 
-if(msg.document)
-fileId=msg.document.file_id;
+        if (msg.video)
+            fileId = msg.video.file_id;
 
-if(msg.video)
-fileId=msg.video.file_id;
+        if (!fileId || !msg.caption)
+            return;
 
-if(!fileId)
-return;
+        const data = parseCaption(msg.caption);
 
-if(!msg.caption)
-return;
+        console.log("📥 Upload:", data.title);
 
-let data=parseCaption(msg.caption);
+        const saved = await saveContent(data, fileId);
 
-console.log("Uploading:",data.title);
+        if (!saved)
+            return;
 
-let saved=await saveContent(data,fileId);
+        const link =
+            `https://t.me/${BOT_USERNAME}?start=${data.content_id}`;
 
-if(saved){
-
-let link=
-
-`https://t.me/${BOT_USERNAME}?start=${data.content_id}`;
-
-await bot.sendMessage(
-
-msg.chat.id,
-
-`✅ Saved Successfully
+        await bot.sendMessage(
+            msg.chat.id,
+            `✅ Saved Successfully
 
 🎬 ${data.title}
 
+📂 ${data.type}
+
 🆔 ${data.content_id}
 
+🎥 ${data.quality}
+
 🔗 ${link}`
+        );
 
-);
+        console.log("✅ Saved:", data.content_id);
 
-console.log("Saved:",data.content_id);
+    } catch (err) {
 
-}
+        console.log("Storage Error:", err.message);
 
-}catch(err){
-
-console.log(err);
-
-}
+    }
 
 });
 
 console.log("✅ PART 2 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 3/20
-// START + WELCOME + FORCE JOIN
+// START + FORCE JOIN + HOME MENU
 // ===================================================
 
-// Force Join Check
+// ======================
+// FORCE JOIN CHECK
+// ======================
 
-async function checkForceJoin(userId){
+async function checkForceJoin(userId) {
 
-try{
+    try {
 
-if(!FORCE_CHANNEL) return true;
+        if (!FORCE_CHANNEL)
+            return true;
 
-let member=await bot.getChatMember(
-FORCE_CHANNEL,
-userId
-);
+        const member = await bot.getChatMember(
+            FORCE_CHANNEL,
+            userId
+        );
 
-return[
-"member",
-"administrator",
-"creator"
-].includes(member.status);
+        return [
+            "creator",
+            "administrator",
+            "member"
+        ].includes(member.status);
 
-}catch{
+    } catch (err) {
 
-return false;
+        return false;
 
-}
-
-}
-
-// Welcome Buttons
-
-function homeButtons(){
-
-return{
-
-inline_keyboard:[
-
-[
-{
-text:"🎬 Movies",
-callback_data:"menu_movies"
-},
-{
-text:"📺 Series",
-callback_data:"menu_series"
-}
-],
-
-[
-{
-text:"🍥 Anime",
-callback_data:"menu_anime"
-}
-],
-
-[
-{
-text:"🔎 Search",
-callback_data:"search"
-}
-],
-
-[
-{
-text:"🎥 Request Movie",
-url:`https://t.me/${ADMIN_USERNAME.replace("@","")}`
-}
-],
-
-[
-{
-text:"👨‍💻 Contact Admin",
-url:`https://t.me/${ADMIN_USERNAME.replace("@","")}`
-}
-]
-
-]
-
-};
+    }
 
 }
 
-// Start Command
+// ======================
+// HOME BUTTONS
+// ======================
 
-bot.onText(/\/start(?:\s+(.+))?/,async(msg,match)=>{
+function homeButtons() {
 
-const chatId=msg.chat.id;
+    return {
 
-await saveUser(msg.from);
+        inline_keyboard: [
 
-// Deep Link
+            [
+                {
+                    text: "🎬 Movies",
+                    callback_data: "menu_movies"
+                },
+                {
+                    text: "📺 Series",
+                    callback_data: "menu_series"
+                }
+            ],
 
-if(match[1]){
+            [
+                {
+                    text: "🍥 Anime",
+                    callback_data: "menu_anime"
+                }
+            ],
 
-return handleDeepLink(chatId,msg.from,match[1]);
+            [
+                {
+                    text: "🔎 Search",
+                    callback_data: "search"
+                }
+            ],
 
-}
+            [
+                {
+                    text: "🎬 Request Movie",
+                    callback_data: "request_movie"
+                }
+            ],
 
-// Force Join
+            [
+                {
+                    text: "👨‍💻 Contact Admin",
+                    url: `https://t.me/${ADMIN_USERNAME.replace("@","")}`
+                }
+            ]
 
-const joined=await checkForceJoin(msg.from.id);
+        ]
 
-if(!joined){
-
-return bot.sendMessage(
-
-chatId,
-
-"⚠️ Please join our updates channel first.",
-
-{
-
-reply_markup:{
-
-inline_keyboard:[
-
-[
-{
-text:"📢 Join Channel",
-url:`https://t.me/${FORCE_CHANNEL.replace("@","")}`
-}
-],
-
-[
-{
-text:"✅ Continue",
-callback_data:"recheck_join"
-}
-]
-
-]
-
-}
-
-}
-
-);
+    };
 
 }
 
-// Welcome
+// ======================
+// START COMMAND
+// ======================
 
-bot.sendMessage(
+bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 
-chatId,
+    const chatId = msg.chat.id;
+
+    await saveUser(msg.from);
+
+    // Deep Link
+
+    if (match[1]) {
+
+        return handleDeepLink(
+            chatId,
+            msg.from,
+            match[1]
+        );
+
+    }
+
+    // Force Join
+
+    const joined = await checkForceJoin(msg.from.id);
+
+    if (!joined) {
+
+        return bot.sendMessage(
+
+            chatId,
+
+            "⚠️ Please join our channel first.",
+
+            {
+
+                reply_markup: {
+
+                    inline_keyboard: [
+
+                        [
+                            {
+                                text: "📢 Join Channel",
+                                url: `https://t.me/${FORCE_CHANNEL.replace("@","")}`
+                            }
+                        ],
+
+                        [
+                            {
+                                text: "✅ Continue",
+                                callback_data: "recheck_join"
+                            }
+                        ]
+
+                    ]
+
+                }
+
+            }
+
+        );
+
+    }
+
+    // Welcome
+
+    await bot.sendMessage(
+
+        chatId,
 
 `🎬 <b>Welcome ${getUsername(msg.from)}</b>
 
@@ -646,783 +538,803 @@ ${randomQuote()}
 ━━━━━━━━━━━━━━
 
 🍿 Movies
-
 📺 Series
-
 🍥 Anime
 
 ━━━━━━━━━━━━━━
 
-🔎 Use the Search button to find your content.
+Choose an option below.`,
 
-`,
+        {
 
-{
+            parse_mode: "HTML",
 
-parse_mode:"HTML",
+            reply_markup: homeButtons()
 
-reply_markup:homeButtons()
+        }
 
-}
-
-);
+    );
 
 });
 
-// Join Callback
+// ======================
+// JOIN CALLBACK
+// ======================
 
-bot.on("callback_query",async(query)=>{
+bot.on("callback_query", async (query) => {
 
-if(query.data!=="recheck_join")
-return;
+    if (query.data !== "recheck_join")
+        return;
 
-const joined=
+    const joined = await checkForceJoin(query.from.id);
 
-await checkForceJoin(query.from.id);
+    if (!joined) {
 
-if(joined){
+        return bot.answerCallbackQuery(query.id, {
 
-bot.editMessageText(
+            text: "❌ Join the channel first.",
 
-"✅ Verification Successful.\n\nPress /start",
+            show_alert: true
 
-{
+        });
 
-chat_id:query.message.chat.id,
+    }
 
-message_id:query.message.message_id
+    await bot.editMessageText(
 
-}
+        "✅ Verification Successful!\n\nPress /start",
 
-);
+        {
 
-}else{
+            chat_id: query.message.chat.id,
 
-bot.answerCallbackQuery(
+            message_id: query.message.message_id
 
-query.id,
+        }
 
-{
-
-text:"Join the channel first.",
-
-show_alert:true
-
-}
-
-);
-
-}
+    );
 
 });
 
 console.log("✅ PART 3 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 4/20
-// MENUS + SEARCH
+// HOME MENU + SEARCH SYSTEM
 // ===================================================
 
-const searchUsers = new Map();
+// ======================
+// SEARCH MODE
+// ======================
 
-// Collections
+const searchMode = new Map();
+
+// ======================
+// GET COLLECTIONS
+// ======================
 
 async function getCollections(type){
 
-try{
+    try{
 
-const result = await pool.query(
+        const result = await pool.query(
 
-`
-SELECT DISTINCT collection
+            `
+            SELECT DISTINCT collection
+            FROM contents
+            WHERE type=$1
+            ORDER BY collection
+            `,
 
-FROM contents
+            [type]
 
-WHERE type=$1
+        );
 
-ORDER BY collection
-`,
+        return result.rows;
 
-[type]
+    }catch(err){
 
-);
+        console.log(err.message);
 
-return result.rows;
+        return [];
 
-}catch{
-
-return [];
+    }
 
 }
 
-}
-
-// Menu
+// ======================
+// SHOW COLLECTIONS
+// ======================
 
 async function showCollections(chatId,type){
 
-const collections =
-await getCollections(type);
+    const collections = await getCollections(type);
 
-if(!collections.length){
+    if(collections.length===0){
 
-return bot.sendMessage(
+        return bot.sendMessage(
+            chatId,
+            `❌ No ${type} available.`
+        );
 
-chatId,
+    }
 
-`❌ No ${type} available.`
+    const buttons=[];
 
-);
+    collections.forEach(item=>{
 
-}
+        buttons.push([
 
-const buttons=[];
+            {
 
-collections.forEach(row=>{
+                text:`📂 ${item.collection}`,
 
-buttons.push([
+                callback_data:`collection_${type}_${item.collection}`
 
-{
+            }
 
-text:`📂 ${row.collection}`,
+        ]);
 
-callback_data:
+    });
 
-`collection_${type}_${row.collection}`
+    buttons.push([
 
-}
+        {
 
-]);
+            text:"🏠 Home",
 
-});
+            callback_data:"home"
 
-buttons.push([
+        }
 
-{
+    ]);
 
-text:"🏠 Home",
+    await bot.sendMessage(
 
-callback_data:"home"
+        chatId,
 
-}
+        `📂 ${type} Collections`,
 
-]);
+        {
 
-bot.sendMessage(
+            reply_markup:{
 
-chatId,
+                inline_keyboard:buttons
 
-`📂 ${type} Collections
+            }
 
-Select one:`,
+        }
 
-{
-
-reply_markup:{
-
-inline_keyboard:buttons
+    );
 
 }
 
-}
-
-);
-
-}
-
-// Callback
+// ======================
+// MENU CALLBACKS
+// ======================
 
 bot.on("callback_query",async(query)=>{
 
-const chatId =
-query.message.chat.id;
+    const chatId=query.message.chat.id;
 
-switch(query.data){
+    switch(query.data){
 
-case "menu_movies":
+        case "menu_movies":
 
-return showCollections(
-chatId,
-"Movie"
-);
+            return showCollections(chatId,"Movie");
 
-case "menu_series":
+        case "menu_series":
 
-return showCollections(
-chatId,
-"Series"
-);
+            return showCollections(chatId,"Series");
 
-case "menu_anime":
+        case "menu_anime":
 
-return showCollections(
-chatId,
-"Anime"
-);
+            return showCollections(chatId,"Anime");
 
-case "search":
+        case "search":
 
-searchUsers.set(
-chatId,
-true
-);
+            searchMode.set(chatId,true);
 
-return bot.sendMessage(
+            return bot.sendMessage(
 
-chatId,
+                chatId,
 
-`🔎 Send the movie, series or anime name.`
+                "🔎 Send Movie / Series / Anime name."
 
-);
+            );
 
-case "home":
+        case "home":
 
-searchUsers.delete(chatId);
+            searchMode.delete(chatId);
 
-return bot.sendMessage(
+            return bot.sendMessage(
 
-chatId,
+                chatId,
 
-`🏠 Home Menu`,
+                "🏠 Welcome Back",
 
-{
+                {
 
-reply_markup:
+                    reply_markup:homeButtons()
 
-homeButtons()
+                }
 
-}
+            );
 
-);
-
-}
+    }
 
 });
 
-// Search
+// ======================
+// SEARCH MESSAGE
+// ======================
 
 bot.on("message",async(msg)=>{
 
-if(!searchUsers.get(msg.chat.id))
-return;
+    if(!searchMode.has(msg.chat.id))
+        return;
 
-if(!msg.text)
-return;
+    if(!msg.text)
+        return;
 
-searchUsers.delete(msg.chat.id);
+    searchMode.delete(msg.chat.id);
 
-const keyword =
-msg.text.trim();
+    const keyword=msg.text.trim();
 
-const result =
-await pool.query(
+    try{
 
-`
-SELECT *
+        const result=await pool.query(
 
-FROM contents
+            `
 
-WHERE
+            SELECT *
 
-LOWER(title)
+            FROM contents
 
-LIKE LOWER($1)
+            WHERE
 
-LIMIT 15
-`,
+            LOWER(title) LIKE LOWER($1)
 
-[
-`%${keyword}%`
-]
+            OR
 
-);
+            LOWER(collection) LIKE LOWER($1)
 
-if(result.rows.length===0){
+            ORDER BY title
 
-return bot.sendMessage(
+            LIMIT 20
 
-msg.chat.id,
+            `,
 
-`❌ "${keyword}" not found.`,
+            [`%${keyword}%`]
 
-{
+        );
 
-reply_markup:{
+        if(result.rows.length===0){
 
-inline_keyboard:[
+            return bot.sendMessage(
 
-[
-{
+                msg.chat.id,
 
-text:"🔎 Google Search",
+                `❌ "${keyword}" not found.`,
 
-url:
+                {
 
-`https://www.google.com/search?q=${encodeURIComponent(keyword)}`
+                    reply_markup:{
 
-}
+                        inline_keyboard:[
 
-],
+                            [
 
-[
-{
+                                {
 
-text:"🎬 Request Movie",
+                                    text:"🔎 Google Search",
 
-url:
+                                    url:`https://www.google.com/search?q=${encodeURIComponent(keyword)}`
 
-`https://t.me/${ADMIN_USERNAME.replace("@","")}`
+                                }
 
-}
+                            ],
 
-],
+                            [
 
-[
-{
+                                {
 
-text:"🏠 Home",
+                                    text:"🎬 Request Movie",
 
-callback_data:"home"
+                                    callback_data:`request_${keyword}`
 
-}
+                                }
 
-]
+                            ],
 
-]
+                            [
 
-}
+                                {
 
-}
+                                    text:"👨‍💻 Contact Admin",
 
-);
+                                    url:`https://t.me/${ADMIN_USERNAME.replace("@","")}`
 
-}
+                                }
 
-const buttons=[];
+                            ]
 
-result.rows.forEach(movie=>{
+                        ]
 
-buttons.push([
+                    }
 
-{
+                }
 
-text:
+            );
 
-`🎬 ${movie.title}`,
+        }
 
-callback_data:
+        const buttons=[];
 
-`play_${movie.content_id}`
+        result.rows.forEach(item=>{
 
-}
+            buttons.push([
 
-]);
+                {
 
-});
+                    text:`🎬 ${item.title}`,
 
-buttons.push([
+                    callback_data:`quality_${item.content_id}`
 
-{
+                }
 
-text:"🏠 Home",
+            ]);
 
-callback_data:"home"
+        });
 
-}
+        buttons.push([
 
-]);
+            {
 
-bot.sendMessage(
+                text:"🏠 Home",
 
-msg.chat.id,
+                callback_data:"home"
 
-"🔎 Search Results",
+            }
 
-{
+        ]);
 
-reply_markup:{
+        await bot.sendMessage(
 
-inline_keyboard:buttons
+            msg.chat.id,
 
-}
+            "🔎 Search Results",
 
-}
+            {
 
-);
+                reply_markup:{
+
+                    inline_keyboard:buttons
+
+                }
+
+            }
+
+        );
+
+    }catch(err){
+
+        console.log(err.message);
+
+    }
 
 });
 
 console.log("✅ PART 4 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 5/20
-// COLLECTION → SEASON → EPISODE
+// COLLECTION → SEASON → EPISODE → QUALITY
 // ===================================================
 
-// Get Collection Items
+// ======================
+// GET COLLECTION ITEMS
+// ======================
 
 async function getCollectionItems(collection){
 
-const result=await pool.query(
+    const result = await pool.query(
 
-`SELECT * FROM contents
-WHERE collection=$1
-ORDER BY season,episode,title`,
+        `
+        SELECT *
+        FROM contents
+        WHERE collection=$1
+        ORDER BY season,episode,title
+        `,
 
-[collection]
+        [collection]
 
-);
+    );
 
-return result.rows;
+    return result.rows;
 
 }
 
-// Get Seasons
+// ======================
+// GET SEASONS
+// ======================
 
 async function getSeasons(collection){
 
-const result=await pool.query(
+    const result = await pool.query(
 
-`SELECT DISTINCT season
-FROM contents
-WHERE collection=$1
-AND season IS NOT NULL
-ORDER BY season`,
+        `
+        SELECT DISTINCT season
+        FROM contents
+        WHERE collection=$1
+        AND season IS NOT NULL
+        ORDER BY season
+        `,
 
-[collection]
+        [collection]
 
-);
+    );
 
-return result.rows;
+    return result.rows;
 
 }
 
-// Get Episodes
+// ======================
+// GET EPISODES
+// ======================
 
 async function getEpisodes(collection,season){
 
-const result=await pool.query(
+    const result = await pool.query(
 
-`SELECT *
-FROM contents
-WHERE collection=$1
-AND season=$2
-ORDER BY episode`,
+        `
+        SELECT *
+        FROM contents
+        WHERE collection=$1
+        AND season=$2
+        ORDER BY episode
+        `,
 
-[collection,season]
+        [collection,season]
 
-);
+    );
 
-return result.rows;
+    return result.rows;
 
 }
 
-// Callback
+// ======================
+// SHOW QUALITY
+// ======================
+
+async function showQuality(chatId,contentId){
+
+    const base = contentId.split("_")[0];
+
+    const result = await pool.query(
+
+        `
+        SELECT *
+        FROM contents
+        WHERE content_id LIKE $1
+        ORDER BY quality
+        `,
+
+        [`${base}%`]
+
+    );
+
+    if(result.rows.length===1){
+
+        return sendFile(chatId,result.rows[0]);
+
+    }
+
+    const buttons=[];
+
+    result.rows.forEach(file=>{
+
+        buttons.push([
+
+            {
+
+                text:`🎥 ${file.quality}`,
+
+                callback_data:`send_${file.content_id}`
+
+            }
+
+        ]);
+
+    });
+
+    buttons.push([
+
+        {
+
+            text:"🏠 Home",
+
+            callback_data:"home"
+
+        }
+
+    ]);
+
+    return bot.sendMessage(
+
+        chatId,
+
+        "🎥 Select Quality",
+
+        {
+
+            reply_markup:{
+
+                inline_keyboard:buttons
+
+            }
+
+        }
+
+    );
+
+}
+
+// ======================
+// CALLBACKS
+// ======================
 
 bot.on("callback_query",async(query)=>{
 
-const chatId=query.message.chat.id;
+    const chatId=query.message.chat.id;
+    const data=query.data;
 
-const data=query.data;
+    // COLLECTION
 
-// Collection
+    if(data.startsWith("collection_")){
 
-if(data.startsWith("collection_")){
+        const parts=data.split("_");
 
-const parts=data.split("_");
+        const type=parts[1];
 
-const type=parts[1];
+        const collection=parts.slice(2).join("_");
 
-const collection=parts.slice(2).join("_");
+        if(type==="Movie"){
 
-if(type==="Movie"){
+            const movies=await getCollectionItems(collection);
 
-const movies=await getCollectionItems(collection);
+            const buttons=[];
 
-const buttons=[];
+            movies.forEach(movie=>{
 
-movies.forEach(movie=>{
+                buttons.push([
 
-buttons.push([
+                    {
 
-{
+                        text:`🎬 ${movie.title} (${movie.quality})`,
 
-text:`🎬 ${movie.title} (${movie.quality})`,
+                        callback_data:`quality_${movie.content_id}`
 
-callback_data:`quality_${movie.content_id}`
+                    }
 
-}
+                ]);
 
-]);
+            });
+
+            buttons.push([
+
+                {
+
+                    text:"🏠 Home",
+
+                    callback_data:"home"
+
+                }
+
+            ]);
+
+            return bot.sendMessage(
+
+                chatId,
+
+                `🎬 ${collection}`,
+
+                {
+
+                    reply_markup:{
+
+                        inline_keyboard:buttons
+
+                    }
+
+                }
+
+            );
+
+        }
+
+        // SERIES / ANIME
+
+        const seasons=await getSeasons(collection);
+
+        const buttons=[];
+
+        seasons.forEach(s=>{
+
+            buttons.push([
+
+                {
+
+                    text:`📺 Season ${s.season}`,
+
+                    callback_data:`season_${collection}_${s.season}`
+
+                }
+
+            ]);
+
+        });
+
+        buttons.push([
+
+            {
+
+                text:"🏠 Home",
+
+                callback_data:"home"
+
+            }
+
+        ]);
+
+        return bot.sendMessage(
+
+            chatId,
+
+            `📂 ${collection}`,
+
+            {
+
+                reply_markup:{
+
+                    inline_keyboard:buttons
+
+                }
+
+            }
+
+        );
+
+    }
+
+    // SEASON
+
+    if(data.startsWith("season_")){
+
+        const parts=data.split("_");
+
+        const collection=parts[1];
+
+        const season=parts[2];
+
+        const episodes=await getEpisodes(collection,season);
+
+        const buttons=[];
+
+        episodes.forEach(ep=>{
+
+            buttons.push([
+
+                {
+
+                    text:`🎬 Episode ${ep.episode}`,
+
+                    callback_data:`quality_${ep.content_id}`
+
+                }
+
+            ]);
+
+        });
+
+        buttons.push([
+
+            {
+
+                text:"📥 Send All Episodes",
+
+                callback_data:`all_${collection}_${season}`
+
+            }
+
+        ]);
+
+        buttons.push([
+
+            {
+
+                text:"🏠 Home",
+
+                callback_data:"home"
+
+            }
+
+        ]);
+
+        return bot.sendMessage(
+
+            chatId,
+
+            `📺 ${collection}\nSeason ${season}`,
+
+            {
+
+                reply_markup:{
+
+                    inline_keyboard:buttons
+
+                }
+
+            }
+
+        );
+
+    }
+
+    // QUALITY
+
+    if(data.startsWith("quality_")){
+
+        const id=data.replace("quality_","");
+
+        return showQuality(chatId,id);
+
+    }
 
 });
-
-buttons.push([
-
-{
-
-text:"🏠 Home",
-
-callback_data:"home"
-
-}
-
-]);
-
-return bot.sendMessage(
-
-chatId,
-
-`🎬 ${collection}`,
-
-{
-
-reply_markup:{
-
-inline_keyboard:buttons
-
-}
-
-}
-
-);
-
-}
-
-// Series / Anime
-
-const seasons=await getSeasons(collection);
-
-const buttons=[];
-
-seasons.forEach(s=>{
-
-buttons.push([
-
-{
-
-text:`📺 Season ${s.season}`,
-
-callback_data:`season_${collection}_${s.season}`
-
-}
-
-]);
-
-});
-
-buttons.push([
-
-{
-
-text:"🏠 Home",
-
-callback_data:"home"
-
-}
-
-]);
-
-return bot.sendMessage(
-
-chatId,
-
-`📂 ${collection}`,
-
-{
-
-reply_markup:{
-
-inline_keyboard:buttons
-
-}
-
-}
-
-);
-
-}
-
-// Season
-
-if(data.startsWith("season_")){
-
-const parts=data.split("_");
-
-const collection=parts[1];
-
-const season=parts[2];
-
-const episodes=
-
-await getEpisodes(
-
-collection,
-
-season
-
-);
-
-const buttons=[];
-
-episodes.forEach(ep=>{
-
-buttons.push([
-
-{
-
-text:`🎬 Episode ${ep.episode}`,
-
-callback_data:`quality_${ep.content_id}`
-
-}
-
-]);
-
-});
-
-buttons.push([
-
-{
-
-text:"📥 Send All Episodes",
-
-callback_data:`all_${collection}_${season}`
-
-}
-
-]);
-
-buttons.push([
-
-{
-
-text:"🏠 Home",
-
-callback_data:"home"
-
-}
-
-]);
-
-return bot.sendMessage(
-
-chatId,
-
-`📺 ${collection}
-Season ${season}`,
-
-{
-
-reply_markup:{
-
-inline_keyboard:buttons
-
-}
-
-}
-
-);
-
-}
-
-});
-
-// Quality Menu
-
-async function showQuality(chatId,id){
-
-const result=
-
-await pool.query(
-
-`SELECT *
-FROM contents
-WHERE content_id LIKE $1
-ORDER BY quality`,
-
-[id.split("_")[0]+"%"]
-
-);
-
-if(!result.rows.length)
-return;
-
-const buttons=[];
-
-result.rows.forEach(file=>{
-
-buttons.push([
-
-{
-
-text:file.quality,
-
-callback_data:`send_${file.content_id}`
-
-}
-
-]);
-
-});
-
-await bot.sendMessage(
-
-chatId,
-
-"🎥 Select Quality",
-
-{
-
-reply_markup:{
-
-inline_keyboard:buttons
-
-}
-
-}
-
-);
-
-}
 
 console.log("✅ PART 5 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 6/20
-// FILE SEND + AUTO DELETE
+// FILE SEND + AUTO DELETE + SEND ALL EPISODES
 // ===================================================
 
-// Auto Delete (10 Minutes)
+// ======================
+// AUTO DELETE (10 MIN)
+// ======================
 
-function autoDelete(chatId,messageId){
+function autoDelete(chatId, messageId) {
 
-setTimeout(async()=>{
+    setTimeout(async () => {
 
-try{
+        try {
 
-await bot.deleteMessage(chatId,messageId);
+            await bot.deleteMessage(chatId, messageId);
 
-}catch(e){}
+        } catch (err) {}
 
-},600000);
+    }, 600000);
 
 }
 
-// Send File
+// ======================
+// SEND FILE
+// ======================
 
-async function sendFile(chatId,file){
+async function sendFile(chatId, file) {
 
-try{
+    try {
 
-const sent=await bot.sendDocument(
+        const sent = await bot.sendDocument(
 
-chatId,
+            chatId,
 
-file.file_id,
+            file.file_id,
 
-{
+            {
 
-caption:`
-
-🎬 <b>${file.title}</b>
+                caption: `🎬 <b>${file.title}</b>
 
 ━━━━━━━━━━━━━━
 
@@ -1434,3355 +1346,2866 @@ ${file.season ? `📺 Season : ${file.season}` : ""}
 
 ${file.episode ? `🎬 Episode : ${file.episode}` : ""}
 
-🎥 Quality : ${file.quality}
+🎥 Quality : ${file.quality || "Unknown"}
+
+🌐 Language : ${file.language || "Unknown"}
+
+📅 Year : ${file.year || "-"}
+
+💾 Size : ${file.size || "-"}
 
 ━━━━━━━━━━━━━━
 
-⭐ Powered By CineXClub
+⭐ Powered By CineXClub`,
 
-`,
+                parse_mode: "HTML",
 
-parse_mode:"HTML",
+                reply_markup: {
 
-reply_markup:{
+                    inline_keyboard: [
 
-inline_keyboard:[
+                        [
+                            {
+                                text: "📢 Join Channel",
+                                url: "https://t.me/CineXClub"
+                            }
+                        ],
 
-[
+                        [
+                            {
+                                text: "👨‍💻 Contact Admin",
+                                url: `https://t.me/${ADMIN_USERNAME.replace("@", "")}`
+                            }
+                        ]
 
-{
+                    ]
 
-text:"📢 Join Channel",
+                }
 
-url:"https://t.me/CineXClub"
+            }
 
-}
+        );
 
-],
+        autoDelete(chatId, sent.message_id);
 
-[
+    } catch (err) {
 
-{
+        console.log("Send Error:", err.message);
 
-text:"👨‍💻 Contact Admin",
-
-url:`https://t.me/${ADMIN_USERNAME.replace("@","")}`
-
-}
-
-]
-
-]
-
-}
-
-}
-
-);
-
-autoDelete(chatId,sent.message_id);
-
-}catch(err){
-
-console.log("Send Error:",err.message);
+    }
 
 }
 
-}
+// ======================
+// SEND ALL EPISODES
+// ======================
 
-// Quality Callback
+async function sendAllEpisodes(chatId, collection, season) {
 
-bot.on("callback_query",async(query)=>{
+    const episodes = await getEpisodes(collection, season);
 
-const data=query.data;
+    if (!episodes.length) {
 
-const chatId=query.message.chat.id;
+        return bot.sendMessage(
 
-if(data.startsWith("quality_")){
+            chatId,
 
-const id=data.replace("quality_","");
+            "❌ Episodes not found."
 
-return showQuality(chatId,id);
+        );
 
-}
+    }
 
-if(data.startsWith("send_")){
+    const status = await bot.sendMessage(
 
-const id=data.replace("send_","");
+        chatId,
 
-const result=await pool.query(
+        `📥 Sending ${episodes.length} Episodes...\n\nPlease wait...`
 
-`SELECT *
-FROM contents
-WHERE content_id=$1
-LIMIT 1`,
+    );
 
-[id]
+    for (const ep of episodes) {
 
-);
+        await sendFile(chatId, ep);
 
-if(!result.rows.length){
+        await new Promise(resolve => setTimeout(resolve, 1200));
 
-return bot.answerCallbackQuery(query.id,{
+    }
 
-text:"❌ File Not Found",
-
-show_alert:true
-
-});
+    autoDelete(chatId, status.message_id);
 
 }
 
-await bot.answerCallbackQuery(query.id);
+// ======================
+// SEND CALLBACKS
+// ======================
 
-return sendFile(chatId,result.rows[0]);
+bot.on("callback_query", async (query) => {
 
-}
+    const chatId = query.message.chat.id;
+    const data = query.data;
 
-// Send All Episodes
+    // SEND SINGLE FILE
 
-if(data.startsWith("all_")){
+    if (data.startsWith("send_")) {
 
-const parts=data.split("_");
+        const id = data.replace("send_", "");
 
-const collection=parts[1];
+        const result = await pool.query(
 
-const season=parts[2];
+            `
+            SELECT *
+            FROM contents
+            WHERE content_id=$1
+            LIMIT 1
+            `,
 
-const episodes=
+            [id]
 
-await getEpisodes(collection,season);
+        );
 
-await bot.sendMessage(
+        if (!result.rows.length) {
 
-chatId,
+            return bot.answerCallbackQuery(query.id, {
 
-`📥 Sending ${episodes.length} Episodes...`
+                text: "❌ File Not Found",
 
-);
+                show_alert: true
 
-for(const ep of episodes){
+            });
 
-await sendFile(chatId,ep);
+        }
 
-await new Promise(r=>setTimeout(r,1200));
+        await bot.answerCallbackQuery(query.id);
 
-}
+        return sendFile(chatId, result.rows[0]);
 
-}
+    }
+
+    // SEND ALL EPISODES
+
+    if (data.startsWith("all_")) {
+
+        const parts = data.split("_");
+
+        const collection = parts[1];
+        const season = parts[2];
+
+        await bot.answerCallbackQuery(query.id);
+
+        return sendAllEpisodes(
+
+            chatId,
+
+            collection,
+
+            season
+
+        );
+
+    }
 
 });
 
 console.log("✅ PART 6 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 7/20
-// SEARCH SYSTEM
+// ADVANCED SEARCH + REQUEST SYSTEM
 // ===================================================
 
-// SEARCH MODE USERS
+// ======================
+// SEARCH MODE
+// ======================
+
 const searchMode = new Map();
 
-// SEARCH BUTTON CALLBACK
+// ======================
+// SEARCH BUTTON
+// ======================
+
 bot.on("callback_query", async (query) => {
 
-const chatId = query.message.chat.id;
+    const chatId = query.message.chat.id;
 
-if(query.data==="search"){
+    if (query.data !== "search")
+        return;
 
-searchMode.set(chatId,true);
+    searchMode.set(chatId, true);
 
-await bot.answerCallbackQuery(query.id);
+    await bot.answerCallbackQuery(query.id);
 
-return bot.sendMessage(
+    return bot.sendMessage(
 
-chatId,
+        chatId,
 
-`🔎 Send me the Movie / Series / Anime name.`
+        "🔎 Send the Movie / Series / Anime name."
 
-);
-
-}
+    );
 
 });
 
+// ======================
 // SEARCH MESSAGE
-bot.on("message", async(msg)=>{
+// ======================
 
-const chatId=msg.chat.id;
+bot.on("message", async (msg) => {
 
-if(!searchMode.has(chatId)) return;
+    const chatId = msg.chat.id;
 
-if(!msg.text) return;
+    if (!searchMode.has(chatId))
+        return;
 
-searchMode.delete(chatId);
+    if (!msg.text)
+        return;
 
-const keyword=msg.text.trim();
+    searchMode.delete(chatId);
 
-try{
+    const keyword = msg.text.trim();
 
-const result=await pool.query(
+    try {
 
-`
+        const result = await pool.query(
 
-SELECT *
+            `
+            SELECT *
+            FROM contents
+            WHERE
+            LOWER(title) LIKE LOWER($1)
+            OR LOWER(collection) LIKE LOWER($1)
+            ORDER BY title
+            LIMIT 20
+            `,
 
-FROM contents
+            [`%${keyword}%`]
 
-WHERE
+        );
 
-LOWER(title) LIKE LOWER($1)
+        // NOT FOUND
 
-OR LOWER(collection) LIKE LOWER($1)
+        if (!result.rows.length) {
 
-ORDER BY title
+            return bot.sendMessage(
 
-LIMIT 20
+                chatId,
 
-`,
+                `❌ <b>${keyword}</b> not found in our database.`,
 
-[`%${keyword}%`]
+                {
 
-);
+                    parse_mode: "HTML",
 
-if(result.rows.length===0){
+                    reply_markup: {
 
-return bot.sendMessage(
+                        inline_keyboard: [
 
-chatId,
+                            [
+                                {
+                                    text: "🔎 Google Search",
+                                    url: `https://www.google.com/search?q=${encodeURIComponent(keyword)}`
+                                }
+                            ],
 
-`❌ No results found for
+                            [
+                                {
+                                    text: "🎬 Request Movie",
+                                    callback_data: `request_${keyword}`
+                                }
+                            ],
 
-<b>${keyword}</b>`,
+                            [
+                                {
+                                    text: "👨‍💻 Contact Admin",
+                                    url: `https://t.me/${ADMIN_USERNAME.replace("@","")}`
+                                }
+                            ],
 
-{
+                            [
+                                {
+                                    text: "🏠 Home",
+                                    callback_data: "home"
+                                }
+                            ]
 
-parse_mode:"HTML",
+                        ]
 
-reply_markup:{
+                    }
 
-inline_keyboard:[
+                }
 
-[
+            );
 
-{
+        }
 
-text:"🔎 Google Search",
+        // RESULTS
 
-url:`https://www.google.com/search?q=${encodeURIComponent(keyword)}`
+        const buttons = [];
 
-}
+        result.rows.forEach(item => {
 
-],
+            buttons.push([
 
-[
+                {
 
-{
+                    text: `🎬 ${item.title} (${item.quality})`,
 
-text:"🎬 Request Movie",
+                    callback_data: `quality_${item.content_id}`
 
-url:`https://t.me/${ADMIN_USERNAME.replace("@","")}`
+                }
 
-}
+            ]);
 
-],
+        });
 
-[
+        buttons.push([
 
-{
+            {
 
-text:"🏠 Home",
+                text: "🏠 Home",
 
-callback_data:"home"
+                callback_data: "home"
 
-}
+            }
 
-]
+        ]);
 
-]
+        await bot.sendMessage(
 
-}
+            chatId,
 
-}
+            `🔎 <b>Search Results</b>\n\n${keyword}`,
 
-);
+            {
 
-}
+                parse_mode: "HTML",
 
-const buttons=[];
+                reply_markup: {
 
-result.rows.forEach(item=>{
+                    inline_keyboard: buttons
 
-buttons.push([
+                }
 
-{
+            }
 
-text:`🎬 ${item.title}`,
+        );
 
-callback_data:`quality_${item.content_id}`
+    } catch (err) {
 
-}
+        console.log("Search Error:", err.message);
 
-]);
+    }
 
 });
 
-buttons.push([
+// ======================
+// SAVE REQUEST
+// ======================
 
-{
+async function saveRequest(username, request) {
 
-text:"🏠 Home",
+    try {
 
-callback_data:"home"
+        await pool.query(
 
-}
+            `
+            INSERT INTO requests(username,request)
+            VALUES($1,$2)
+            `,
 
-]);
+            [username, request]
 
-await bot.sendMessage(
+        );
 
-chatId,
+    } catch (err) {
 
-`🔎 Search Results
+        console.log("Request Error:", err.message);
 
-<b>${keyword}</b>`,
-
-{
-
-parse_mode:"HTML",
-
-reply_markup:{
-
-inline_keyboard:buttons
+    }
 
 }
-
-}
-
-);
-
-}catch(err){
-
-console.log("Search Error:",err.message);
-
-}
-
-});
 
 console.log("✅ PART 7 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 8/20
-// MOVIE REQUEST SYSTEM
+// REQUEST SYSTEM + ADMIN NOTIFICATION
 // ===================================================
 
-// SAVE REQUEST
-
-async function saveRequest(username,request){
-
-try{
-
-await pool.query(
-
-`
-
-INSERT INTO requests
-
-(username,request)
-
-VALUES($1,$2)
-
-`,
-
-[username,request]
-
-);
-
-}catch(err){
-
-console.log("Request Error:",err.message);
-
-}
-
-}
-
+// ======================
 // REQUEST CALLBACK
+// ======================
 
-bot.on("callback_query",async(query)=>{
+bot.on("callback_query", async (query) => {
 
-const data=query.data;
+    const data = query.data;
+    const chatId = query.message.chat.id;
 
-const chatId=query.message.chat.id;
+    if (!data.startsWith("request_"))
+        return;
 
-if(!data.startsWith("request_")) return;
+    const request = data.replace("request_", "");
 
-const request=data.replace("request_","");
+    const username = query.from.username
+        ? "@" + query.from.username
+        : query.from.first_name;
 
-const username=
+    await saveRequest(username, request);
 
-query.from.username
+    // USER SUCCESS
 
-?
+    await bot.sendMessage(
 
-"@"+query.from.username
+        chatId,
 
-:
+`✅ <b>Your request has been submitted.</b>
 
-query.from.first_name;
-
-await saveRequest(
-
-username,
-
-request
-
-);
-
-// USER MESSAGE
-
-await bot.sendMessage(
-
-chatId,
-
-`
-
-✅ Your request has been sent.
-
-🎬 Requested:
+🎬 Requested :
 ${request}
 
-Our admin will upload it if available.
+⏳ Our admin will upload it if available.`,
 
-`
+        {
 
-);
+            parse_mode: "HTML"
 
-// ADMIN MESSAGE
+        }
 
-try{
+    );
 
-await bot.sendMessage(
+    // ADMIN NOTIFICATION
 
-`@${ADMIN_USERNAME.replace("@","")}`,
+    if (ADMIN_CHAT_ID) {
 
-`
+        try {
 
-📥 New Movie Request
+            await bot.sendMessage(
 
-👤 User:
+                ADMIN_CHAT_ID,
+
+`📥 <b>New Content Request</b>
+
+👤 User :
 ${username}
 
-🎬 Request:
+🎬 Request :
 ${request}
 
-`
+🕒 ${new Date().toLocaleString()}`,
 
-);
+                {
 
-}catch(err){
+                    parse_mode: "HTML"
 
-console.log(
+                }
 
-"Admin Notify Error:",
+            );
 
-err.message
+        } catch (err) {
 
-);
+            console.log("Admin Notify Error:", err.message);
 
-}
+        }
 
-await bot.answerCallbackQuery(
+    }
 
-query.id,
+    await bot.answerCallbackQuery(
 
-{
+        query.id,
 
-text:"Request Sent ✅"
+        {
 
-}
+            text: "Request Sent ✅"
 
-);
+        }
+
+    );
 
 });
 
-// /request COMMAND
+// ======================
+// /REQUEST COMMAND
+// ======================
 
-bot.onText(
+bot.onText(/\/request (.+)/, async (msg, match) => {
 
-/\/request (.+)/,
+    const request = match[1].trim();
 
-async(msg,match)=>{
+    const username = msg.from.username
+        ? "@" + msg.from.username
+        : msg.from.first_name;
 
-const request=
+    await saveRequest(username, request);
 
-match[1].trim();
+    await bot.sendMessage(
 
-const username=
+        msg.chat.id,
 
-msg.from.username
-
-?
-
-"@"+msg.from.username
-
-:
-
-msg.from.first_name;
-
-await saveRequest(
-
-username,
-
-request
-
-);
-
-await bot.sendMessage(
-
-msg.chat.id,
-
-`
-
-✅ Request Saved
+`✅ Request Saved
 
 🎬 ${request}
 
-`
+⏳ Please wait for admin approval.`
 
-);
+    );
 
-try{
+    if (ADMIN_CHAT_ID) {
 
-await bot.sendMessage(
+        try {
 
-`@${ADMIN_USERNAME.replace("@","")}`,
+            await bot.sendMessage(
 
-`
+                ADMIN_CHAT_ID,
 
-📥 New Request
+`📥 <b>New Request</b>
 
 👤 ${username}
 
-🎬 ${request}
+🎬 ${request}`,
 
-`
+                {
 
-);
+                    parse_mode: "HTML"
 
-}catch(err){}
+                }
+
+            );
+
+        } catch (err) {
+
+            console.log(err.message);
+
+        }
+
+    }
 
 });
 
 console.log("✅ PART 8 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 9/20
-// ADMIN PANEL
+// ADMIN PANEL + STATISTICS
 // ===================================================
 
-const ADMIN_CHAT_ID =
-process.env.ADMIN_CHAT_ID;
-
-// Admin Check
+// ======================
+// ADMIN CHECK
+// ======================
 
 function isAdmin(userId){
 
-return String(userId)===String(ADMIN_CHAT_ID);
+    return String(userId)===String(ADMIN_CHAT_ID);
 
 }
 
-// Admin Panel
+// ======================
+// /ADMIN
+// ======================
 
-bot.onText(
+bot.onText(/\/admin/,async(msg)=>{
 
-/\/admin/,
+    if(!isAdmin(msg.from.id)){
 
-async(msg)=>{
+        return bot.sendMessage(
+            msg.chat.id,
+            "❌ Access Denied."
+        );
 
-if(!isAdmin(msg.from.id)){
+    }
 
-return;
+    try{
 
-}
+        const users=await pool.query(
+            "SELECT COUNT(*) FROM users"
+        );
 
-const users=await pool.query(
+        const movies=await pool.query(
+            "SELECT COUNT(*) FROM contents WHERE type='Movie'"
+        );
 
-`SELECT COUNT(*) FROM users`
+        const series=await pool.query(
+            "SELECT COUNT(*) FROM contents WHERE type='Series'"
+        );
 
-);
+        const anime=await pool.query(
+            "SELECT COUNT(*) FROM contents WHERE type='Anime'"
+        );
 
-const movies=await pool.query(
+        const requests=await pool.query(
+            "SELECT COUNT(*) FROM requests"
+        );
 
-`SELECT COUNT(*) FROM contents WHERE type='Movie'`
+        await bot.sendMessage(
 
-);
+            msg.chat.id,
 
-const series=await pool.query(
-
-`SELECT COUNT(*) FROM contents WHERE type='Series'`
-
-);
-
-const anime=await pool.query(
-
-`SELECT COUNT(*) FROM contents WHERE type='Anime'`
-
-);
-
-const requests=await pool.query(
-
-`SELECT COUNT(*) FROM requests`
-
-);
-
-bot.sendMessage(
-
-msg.chat.id,
-
-`
-
-👑 <b>CineXClub Admin Panel</b>
+`👑 <b>CineXClub Admin Panel</b>
 
 ━━━━━━━━━━━━━━
 
-👥 Users :
-${users.rows[0].count}
+👥 Users : ${users.rows[0].count}
 
-🎬 Movies :
-${movies.rows[0].count}
+🎬 Movies : ${movies.rows[0].count}
 
-📺 Series :
-${series.rows[0].count}
+📺 Series : ${series.rows[0].count}
 
-🍥 Anime :
-${anime.rows[0].count}
+🍥 Anime : ${anime.rows[0].count}
 
-📩 Requests :
-${requests.rows[0].count}
+📩 Requests : ${requests.rows[0].count}
 
 ━━━━━━━━━━━━━━
 
-`,
+Choose an option:`,
 
-{
+            {
 
-parse_mode:"HTML",
+                parse_mode:"HTML",
 
-reply_markup:{
+                reply_markup:{
 
-inline_keyboard:[
+                    inline_keyboard:[
 
-[
+                        [
+                            {
+                                text:"📢 Broadcast",
+                                callback_data:"admin_broadcast"
+                            }
+                        ],
 
-{
+                        [
+                            {
+                                text:"📋 View Requests",
+                                callback_data:"admin_requests"
+                            }
+                        ],
 
-text:"📢 Broadcast",
+                        [
+                            {
+                                text:"📊 Refresh",
+                                callback_data:"admin_refresh"
+                            }
+                        ]
 
-callback_data:"broadcast"
+                    ]
 
-}
+                }
 
-],
+            }
 
-[
+        );
 
-{
+    }catch(err){
 
-text:"📋 Requests",
+        console.log("Admin Error:",err.message);
 
-callback_data:"admin_requests"
-
-}
-
-],
-
-[
-
-{
-
-text:"📊 Refresh",
-
-callback_data:"refresh_admin"
-
-}
-
-]
-
-]
-
-}
-
-}
-
-);
+    }
 
 });
 
-// Admin Callbacks
+// ======================
+// BROADCAST MODE
+// ======================
 
-bot.on(
+const broadcastMode=new Map();
 
-"callback_query",
+bot.on("callback_query",async(query)=>{
 
-async(query)=>{
+    if(query.data!=="admin_broadcast")
+        return;
 
-if(
+    if(!isAdmin(query.from.id))
+        return;
 
-!isAdmin(query.from.id)
+    broadcastMode.set(query.from.id,true);
 
-)
+    await bot.answerCallbackQuery(query.id);
 
-return;
+    await bot.sendMessage(
 
-const data=query.data;
+        query.message.chat.id,
 
-// Refresh
+        "📢 Send the broadcast message."
 
-if(data==="refresh_admin"){
-
-return bot.sendMessage(
-
-query.message.chat.id,
-
-"♻️ Use /admin to refresh."
-
-);
-
-}
-
-// Requests
-
-if(data==="admin_requests"){
-
-const result=
-
-await pool.query(
-
-`
-
-SELECT *
-
-FROM requests
-
-ORDER BY id DESC
-
-LIMIT 20
-
-`
-
-);
-
-if(!result.rows.length){
-
-return bot.sendMessage(
-
-query.message.chat.id,
-
-"📭 No Requests."
-
-);
-
-}
-
-let text="📩 Latest Requests\n\n";
-
-result.rows.forEach(r=>{
-
-text+=
-
-`👤 ${r.username}
-
-🎬 ${r.request}
-
-──────────
-
-`;
-
-});
-
-return bot.sendMessage(
-
-query.message.chat.id,
-
-text
-
-);
-
-}
-
-// Broadcast
-
-if(data==="broadcast"){
-
-broadcastUsers.set(
-
-query.message.chat.id,
-
-true
-
-);
-
-return bot.sendMessage(
-
-query.message.chat.id,
-
-"📢 Send broadcast message."
-
-);
-
-}
+    );
 
 });
 
 console.log("✅ PART 9 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 10/20
-// BROADCAST SYSTEM
+// BROADCAST + VIEW REQUESTS
 // ===================================================
 
-const broadcastUsers = new Map();
+// ======================
+// BROADCAST MESSAGE
+// ======================
 
-// WAITING FOR BROADCAST MESSAGE
+bot.on("message", async (msg) => {
 
-bot.on("message", async(msg)=>{
+    if (!broadcastMode.has(msg.from.id))
+        return;
 
-if(!broadcastUsers.has(msg.chat.id))
-return;
+    if (!isAdmin(msg.from.id))
+        return;
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID))
-return;
+    broadcastMode.delete(msg.from.id);
 
-broadcastUsers.delete(msg.chat.id);
+    try {
 
-const text=msg.text || msg.caption;
+        const users = await pool.query(
 
-if(!text){
+            `SELECT username FROM users`
 
-return bot.sendMessage(
+        );
 
-msg.chat.id,
+        let sent = 0;
+        let failed = 0;
 
-"❌ Send a text message."
+        for (const user of users.rows) {
 
-);
+            try {
 
-}
+                if (!user.username || !user.username.startsWith("@"))
+                    continue;
 
-const users=
+                await bot.sendMessage(
+                    user.username,
+                    msg.text
+                );
 
-await pool.query(
+                sent++;
 
-`
+                await new Promise(resolve =>
+                    setTimeout(resolve, 80)
+                );
 
-SELECT username
+            } catch {
 
-FROM users
+                failed++;
 
-`
+            }
 
-);
+        }
 
-let success=0;
+        await bot.sendMessage(
 
-let failed=0;
-
-const status=
-
-await bot.sendMessage(
-
-msg.chat.id,
-
-"📢 Broadcasting...\n\n0/"+users.rows.length
-
-);
-
-for(const user of users.rows){
-
-try{
-
-const chat=
-
-await bot.getChat(
-
-user.username
-
-);
-
-await bot.sendMessage(
-
-chat.id,
-
-text,
-
-{
-
-parse_mode:"HTML"
-
-}
-
-);
-
-success++;
-
-}catch{
-
-failed++;
-
-}
-
-await bot.editMessageText(
-
-`📢 Broadcasting...
-
-✅ Success : ${success}
-
-❌ Failed : ${failed}
-
-📊 Total : ${users.rows.length}`,
-
-{
-
-chat_id:msg.chat.id,
-
-message_id:status.message_id
-
-}
-
-);
-
-}
-
-await bot.editMessageText(
+            msg.chat.id,
 
 `✅ Broadcast Completed
 
-━━━━━━━━━━━━━━
+📤 Sent : ${sent}
 
-👥 Total Users : ${users.rows.length}
+❌ Failed : ${failed}`
 
-✅ Success : ${success}
+        );
 
-❌ Failed : ${failed}
+    } catch (err) {
 
-━━━━━━━━━━━━━━`,
+        console.log("Broadcast Error:", err.message);
 
-{
+    }
 
-chat_id:msg.chat.id,
+});
 
-message_id:status.message_id
+// ======================
+// VIEW REQUESTS
+// ======================
 
-}
+bot.on("callback_query", async (query) => {
 
-);
+    if (query.data !== "admin_requests")
+        return;
+
+    if (!isAdmin(query.from.id))
+        return;
+
+    try {
+
+        const result = await pool.query(
+
+            `
+            SELECT *
+            FROM requests
+            ORDER BY created_at DESC
+            LIMIT 20
+            `
+
+        );
+
+        if (!result.rows.length) {
+
+            return bot.sendMessage(
+
+                query.message.chat.id,
+
+                "📭 No requests found."
+
+            );
+
+        }
+
+        let text = "📩 Latest Requests\n\n";
+
+        result.rows.forEach((row, index) => {
+
+            text += `${index + 1}. ${row.request}\n`;
+            text += `👤 ${row.username}\n\n`;
+
+        });
+
+        await bot.sendMessage(
+
+            query.message.chat.id,
+
+            text
+
+        );
+
+    } catch (err) {
+
+        console.log("Request List Error:", err.message);
+
+    }
+
+});
+
+// ======================
+// REFRESH ADMIN PANEL
+// ======================
+
+bot.on("callback_query", async (query) => {
+
+    if (query.data !== "admin_refresh")
+        return;
+
+    if (!isAdmin(query.from.id))
+        return;
+
+    await bot.answerCallbackQuery(query.id, {
+
+        text: "✅ Refreshed"
+
+    });
+
+    bot.emit("text", {
+        ...query.message,
+        from: query.from,
+        text: "/admin"
+    });
 
 });
 
 console.log("✅ PART 10 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 11/20
-// CHAT ID SUPPORT + USER SYSTEM
+// CLEAN ADMIN PANEL + REFRESH SYSTEM
 // ===================================================
 
-// USERS TABLE
-await pool.query(`
+// ======================
+// SHOW ADMIN PANEL
+// ======================
 
-CREATE TABLE IF NOT EXISTS users(
+async function showAdminPanel(chatId){
 
-id SERIAL PRIMARY KEY,
+    try{
 
-chat_id BIGINT UNIQUE NOT NULL,
+        const users = await pool.query(
+            "SELECT COUNT(*) FROM users"
+        );
 
-username TEXT,
+        const movies = await pool.query(
+            "SELECT COUNT(*) FROM contents WHERE type='Movie'"
+        );
 
-first_name TEXT,
+        const series = await pool.query(
+            "SELECT COUNT(*) FROM contents WHERE type='Series'"
+        );
 
-created_at TIMESTAMP DEFAULT NOW()
+        const anime = await pool.query(
+            "SELECT COUNT(*) FROM contents WHERE type='Anime'"
+        );
 
-);
+        const requests = await pool.query(
+            "SELECT COUNT(*) FROM requests"
+        );
 
-`);
+        await bot.sendMessage(
 
-// SAVE USER
+            chatId,
 
-async function saveUser(user,chatId){
+`👑 <b>CineXClub Admin Panel</b>
 
-try{
+━━━━━━━━━━━━━━
 
-await pool.query(
+👥 Users : ${users.rows[0].count}
 
-`
+🎬 Movies : ${movies.rows[0].count}
 
-INSERT INTO users
+📺 Series : ${series.rows[0].count}
 
-(chat_id,username,first_name)
+🍥 Anime : ${anime.rows[0].count}
 
-VALUES($1,$2,$3)
+📩 Requests : ${requests.rows[0].count}
 
-ON CONFLICT(chat_id)
+━━━━━━━━━━━━━━
 
-DO UPDATE SET
+Choose an option 👇`,
 
-username=EXCLUDED.username,
+            {
 
-first_name=EXCLUDED.first_name
+                parse_mode:"HTML",
 
-`
+                reply_markup:{
 
-,
+                    inline_keyboard:[
 
-[
+                        [
+                            {
+                                text:"📢 Broadcast",
+                                callback_data:"admin_broadcast"
+                            }
+                        ],
 
-chatId,
+                        [
+                            {
+                                text:"📋 Latest Requests",
+                                callback_data:"admin_requests"
+                            }
+                        ],
 
-user.username || null,
+                        [
+                            {
+                                text:"🔄 Refresh",
+                                callback_data:"admin_refresh"
+                            }
+                        ]
 
-user.first_name || ""
+                    ]
 
-]
+                }
 
-);
+            }
 
-}catch(err){
+        );
 
-console.log(
+    }catch(err){
 
-"Save User Error:",
+        console.log("Admin Panel Error:",err.message);
 
-err.message
-
-);
-
-}
-
-}
-
-// START COMMAND లో
-
-// OLD
-// await saveUser(msg.from);
-
-// NEW
-await saveUser(
-
-msg.from,
-
-msg.chat.id
-
-);
-
-// ===================================================
-// BROADCAST FIX
-// ===================================================
-
-// Part 10 లో ఈ query replace చేయి
-
-const users=await pool.query(
-
-`
-
-SELECT chat_id
-
-FROM users
-
-`
-
-);
-
-// FOR LOOP కూడా replace చేయి
-
-for(const user of users.rows){
-
-try{
-
-await bot.sendMessage(
-
-user.chat_id,
-
-text,
-
-{
-
-parse_mode:"HTML"
+    }
 
 }
 
-);
+// ======================
+// /ADMIN COMMAND
+// ======================
 
-success++;
+bot.onText(/\/admin/,async(msg)=>{
 
-}catch{
+    if(!isAdmin(msg.from.id))
+        return;
 
-failed++;
+    await showAdminPanel(msg.chat.id);
 
-}
+});
 
-}
-// ===================================================
-// PART 12/20
-// HOME MENU + LATEST + TRENDING
-// ===================================================
-
-// Latest Uploads
-
-async function getLatestUploads(){
-
-const result=await pool.query(
-
-`
-
-SELECT *
-
-FROM contents
-
-ORDER BY created_at DESC
-
-LIMIT 10
-
-`
-
-);
-
-return result.rows;
-
-}
-
-// Trending
-
-async function getTrending(){
-
-const result=await pool.query(
-
-`
-
-SELECT *
-
-FROM contents
-
-ORDER BY id DESC
-
-LIMIT 10
-
-`
-
-);
-
-return result.rows;
-
-}
-
-// Home Buttons
-
-function homeButtons(){
-
-return{
-
-inline_keyboard:[
-
-[
-
-{
-
-text:"🎬 Movies",
-
-callback_data:"menu_movies"
-
-},
-
-{
-
-text:"📺 Series",
-
-callback_data:"menu_series"
-
-}
-
-],
-
-[
-
-{
-
-text:"🍥 Anime",
-
-callback_data:"menu_anime"
-
-}
-
-],
-
-[
-
-{
-
-text:"🔎 Search",
-
-callback_data:"search"
-
-}
-
-],
-
-[
-
-{
-
-text:"🆕 Latest Uploads",
-
-callback_data:"latest"
-
-}
-
-],
-
-[
-
-{
-
-text:"🔥 Trending",
-
-callback_data:"trending"
-
-}
-
-],
-
-[
-
-{
-
-text:"🎬 Request Movie",
-
-url:`https://t.me/${ADMIN_USERNAME.replace("@","")}`
-
-}
-
-],
-
-[
-
-{
-
-text:"📢 Join Channel",
-
-url:`https://t.me/${FORCE_CHANNEL.replace("@","")}`
-
-}
-
-]
-
-]
-
-};
-
-}
-
-// Latest / Trending Callback
+// ======================
+// REFRESH CALLBACK
+// ======================
 
 bot.on("callback_query",async(query)=>{
 
-const chatId=query.message.chat.id;
+    if(query.data!=="admin_refresh")
+        return;
 
-if(query.data==="latest"){
+    if(!isAdmin(query.from.id))
+        return;
 
-const list=await getLatestUploads();
+    await bot.answerCallbackQuery(query.id);
 
-if(!list.length){
-
-return bot.sendMessage(
-
-chatId,
-
-"❌ No uploads available."
-
-);
-
-}
-
-const buttons=[];
-
-list.forEach(item=>{
-
-buttons.push([
-
-{
-
-text:`🎬 ${item.title}`,
-
-callback_data:`quality_${item.content_id}`
-
-}
-
-]);
+    await showAdminPanel(query.message.chat.id);
 
 });
 
-buttons.push([
+console.log("✅ PART 11 Loaded");
+// ===================================================
+// CineXClub Bot
+// PART 12/20
+// ADMIN STATS COMMANDS
+// ===================================================
 
-{
+// ======================
+// /USERS
+// ======================
 
-text:"🏠 Home",
+bot.onText(/\/users/, async (msg) => {
 
-callback_data:"home"
+    if (!isAdmin(msg.from.id)) return;
 
-}
+    const result = await pool.query(
+        "SELECT COUNT(*) FROM users"
+    );
 
-]);
-
-return bot.sendMessage(
-
-chatId,
-
-"🆕 Latest Uploads",
-
-{
-
-reply_markup:{
-
-inline_keyboard:buttons
-
-}
-
-}
-
-);
-
-}
-
-if(query.data==="trending"){
-
-const list=await getTrending();
-
-if(!list.length){
-
-return bot.sendMessage(
-
-chatId,
-
-"❌ No trending content."
-
-);
-
-}
-
-const buttons=[];
-
-list.forEach(item=>{
-
-buttons.push([
-
-{
-
-text:`🔥 ${item.title}`,
-
-callback_data:`quality_${item.content_id}`
-
-}
-
-]);
+    bot.sendMessage(
+        msg.chat.id,
+        `👥 Total Users : ${result.rows[0].count}`
+    );
 
 });
 
-buttons.push([
+// ======================
+// /MOVIES
+// ======================
 
-{
+bot.onText(/\/movies/, async (msg) => {
 
-text:"🏠 Home",
+    if (!isAdmin(msg.from.id)) return;
 
-callback_data:"home"
+    const result = await pool.query(
+        "SELECT COUNT(*) FROM contents WHERE type='Movie'"
+    );
 
-}
+    bot.sendMessage(
+        msg.chat.id,
+        `🎬 Total Movies : ${result.rows[0].count}`
+    );
 
-]);
+});
 
-return bot.sendMessage(
+// ======================
+// /SERIES
+// ======================
 
-chatId,
+bot.onText(/\/series/, async (msg) => {
 
-"🔥 Trending Content",
+    if (!isAdmin(msg.from.id)) return;
 
-{
+    const result = await pool.query(
+        "SELECT COUNT(*) FROM contents WHERE type='Series'"
+    );
 
-reply_markup:{
+    bot.sendMessage(
+        msg.chat.id,
+        `📺 Total Series : ${result.rows[0].count}`
+    );
 
-inline_keyboard:buttons
+});
 
-}
+// ======================
+// /ANIME
+// ======================
 
-}
+bot.onText(/\/anime/, async (msg) => {
 
-);
+    if (!isAdmin(msg.from.id)) return;
 
-}
+    const result = await pool.query(
+        "SELECT COUNT(*) FROM contents WHERE type='Anime'"
+    );
+
+    bot.sendMessage(
+        msg.chat.id,
+        `🍥 Total Anime : ${result.rows[0].count}`
+    );
+
+});
+
+// ======================
+// /REQUESTS
+// ======================
+
+bot.onText(/\/requests/, async (msg) => {
+
+    if (!isAdmin(msg.from.id)) return;
+
+    const result = await pool.query(
+        "SELECT COUNT(*) FROM requests"
+    );
+
+    bot.sendMessage(
+        msg.chat.id,
+        `📩 Total Requests : ${result.rows[0].count}`
+    );
+
+});
+
+// ======================
+// /SEARCHDB
+// ======================
+
+bot.onText(/\/searchdb (.+)/, async (msg, match) => {
+
+    if (!isAdmin(msg.from.id)) return;
+
+    const keyword = match[1];
+
+    const result = await pool.query(
+
+        `
+        SELECT *
+        FROM contents
+        WHERE LOWER(title)
+        LIKE LOWER($1)
+        LIMIT 20
+        `,
+
+        [`%${keyword}%`]
+
+    );
+
+    if (!result.rows.length) {
+
+        return bot.sendMessage(
+            msg.chat.id,
+            "❌ No results found."
+        );
+
+    }
+
+    let text = "📂 Database Results\n\n";
+
+    result.rows.forEach(item => {
+
+        text += `🎬 ${item.title}\n`;
+        text += `🆔 ${item.content_id}\n`;
+        text += `📂 ${item.type}\n\n`;
+
+    });
+
+    bot.sendMessage(msg.chat.id, text);
 
 });
 
 console.log("✅ PART 12 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 13/20
-// ADMIN CONTENT MANAGEMENT
+// DELETE + UPDATE + DATABASE CLEANUP
 // ===================================================
 
-// DELETE CONTENT
+// ======================
+// /DELETE
+// ======================
 
 bot.onText(/\/delete (.+)/, async (msg, match) => {
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID)) return;
+    if (!isAdmin(msg.from.id)) return;
 
-const id=match[1].trim();
+    const id = match[1].trim().toLowerCase();
 
-const result=await pool.query(
+    try {
 
-`DELETE FROM contents
-WHERE content_id=$1
-RETURNING title`,
+        const result = await pool.query(
 
-[id]
+            `
+            DELETE FROM contents
+            WHERE content_id=$1
+            RETURNING title
+            `,
 
-);
+            [id]
 
-if(result.rowCount===0){
+        );
 
-return bot.sendMessage(
+        if (!result.rows.length) {
 
-msg.chat.id,
+            return bot.sendMessage(
+                msg.chat.id,
+                "❌ Content not found."
+            );
 
-"❌ Content not found."
+        }
 
-);
+        bot.sendMessage(
 
-}
+            msg.chat.id,
 
-bot.sendMessage(
-
-msg.chat.id,
-
-`✅ Deleted
+            `✅ Deleted Successfully
 
 🎬 ${result.rows[0].title}`
 
-);
+        );
+
+    } catch (err) {
+
+        console.log(err.message);
+
+    }
 
 });
 
-// CONTENT INFO
+// ======================
+// /UPDATEQUALITY
+// ======================
 
-bot.onText(/\/info (.+)/, async(msg,match)=>{
+bot.onText(/\/updatequality (.+) (.+)/, async (msg, match) => {
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID)) return;
+    if (!isAdmin(msg.from.id)) return;
 
-const id=match[1].trim();
+    const id = match[1].trim().toLowerCase();
+    const quality = match[2].trim();
 
-const result=await pool.query(
+    try {
 
-`
+        await pool.query(
 
-SELECT *
+            `
+            UPDATE contents
+            SET quality=$1
+            WHERE content_id=$2
+            `,
 
-FROM contents
+            [quality, id]
 
-WHERE content_id=$1
+        );
 
-LIMIT 1
+        bot.sendMessage(
 
-`,
+            msg.chat.id,
 
-[id]
+            `✅ Quality Updated
 
-);
+🆔 ${id}
 
-if(!result.rows.length){
+🎥 ${quality}`
 
-return bot.sendMessage(
+        );
 
-msg.chat.id,
+    } catch (err) {
 
-"❌ Content not found."
+        console.log(err.message);
 
-);
-
-}
-
-const c=result.rows[0];
-
-bot.sendMessage(
-
-msg.chat.id,
-
-`
-
-🎬 ${c.title}
-
-━━━━━━━━━━━━
-
-🆔 ${c.content_id}
-
-📂 ${c.type}
-
-🎞 ${c.collection||"-"}
-
-📺 ${c.season||"-"}
-
-🎬 ${c.episode||"-"}
-
-🎥 ${c.quality}
-
-━━━━━━━━━━━━
-
-`
-
-);
+    }
 
 });
 
-// UPLOAD STATS
+// ======================
+// /UPDATELANGUAGE
+// ======================
 
-bot.onText(/\/stats/,async(msg)=>{
+bot.onText(/\/updatelanguage (.+) (.+)/, async (msg, match) => {
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID)) return;
+    if (!isAdmin(msg.from.id)) return;
 
-const total=
+    const id = match[1].trim().toLowerCase();
+    const language = match[2];
 
-await pool.query(
+    try {
 
-`SELECT COUNT(*) FROM contents`
+        await pool.query(
 
-);
+            `
+            UPDATE contents
+            SET language=$1
+            WHERE content_id=$2
+            `,
 
-const movie=
+            [language, id]
 
-await pool.query(
+        );
 
-`SELECT COUNT(*) FROM contents WHERE type='Movie'`
+        bot.sendMessage(
+            msg.chat.id,
+            `✅ Language Updated`
+        );
 
-);
+    } catch (err) {
 
-const series=
+        console.log(err.message);
 
-await pool.query(
-
-`SELECT COUNT(*) FROM contents WHERE type='Series'`
-
-);
-
-const anime=
-
-await pool.query(
-
-`SELECT COUNT(*) FROM contents WHERE type='Anime'`
-
-);
-
-bot.sendMessage(
-
-msg.chat.id,
-
-`
-
-📊 Upload Statistics
-
-━━━━━━━━━━━━
-
-🎬 Movies :
-${movie.rows[0].count}
-
-📺 Series :
-${series.rows[0].count}
-
-🍥 Anime :
-${anime.rows[0].count}
-
-📦 Total :
-${total.rows[0].count}
-
-━━━━━━━━━━━━
-
-`
-
-);
+    }
 
 });
 
-// RECENT REQUESTS
+// ======================
+// /UPDATEYEAR
+// ======================
 
-bot.onText(/\/requests/,async(msg)=>{
+bot.onText(/\/updateyear (.+) (.+)/, async (msg, match) => {
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID)) return;
+    if (!isAdmin(msg.from.id)) return;
 
-const result=
+    const id = match[1].trim().toLowerCase();
+    const year = match[2];
 
-await pool.query(
+    try {
 
-`
+        await pool.query(
 
-SELECT *
+            `
+            UPDATE contents
+            SET year=$1
+            WHERE content_id=$2
+            `,
 
-FROM requests
+            [year, id]
 
-ORDER BY created_at DESC
+        );
 
-LIMIT 15
+        bot.sendMessage(
+            msg.chat.id,
+            "✅ Year Updated"
+        );
 
-`
+    } catch (err) {
 
-);
+        console.log(err.message);
 
-if(!result.rows.length){
-
-return bot.sendMessage(
-
-msg.chat.id,
-
-"📭 No Requests."
-
-);
-
-}
-
-let text="📩 Recent Requests\n\n";
-
-result.rows.forEach(r=>{
-
-text+=`👤 ${r.username}
-
-🎬 ${r.request}
-
-────────────
-
-`;
+    }
 
 });
 
-bot.sendMessage(
+// ======================
+// /CLEANREQUESTS
+// ======================
 
-msg.chat.id,
+bot.onText(/\/cleanrequests/, async (msg) => {
 
-text
+    if (!isAdmin(msg.from.id)) return;
 
-);
+    try {
+
+        await pool.query(
+
+            `DELETE FROM requests`
+
+        );
+
+        bot.sendMessage(
+
+            msg.chat.id,
+
+            "🗑 All requests deleted."
+
+        );
+
+    } catch (err) {
+
+        console.log(err.message);
+
+    }
 
 });
 
 console.log("✅ PART 13 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 14/20
-// CONTENT MANAGEMENT
+// BACKUP + EXPORT + IMPORT COMMANDS
 // ===================================================
 
-// DELETE REQUEST
+// ======================
+// /BACKUP
+// ======================
 
-bot.onText(/\/clearrequests/, async(msg)=>{
+bot.onText(/\/backup/, async (msg) => {
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID)) return;
+    if (!isAdmin(msg.from.id)) return;
 
-await pool.query("DELETE FROM requests");
+    try {
 
-bot.sendMessage(
+        const result = await pool.query(
+            "SELECT * FROM contents ORDER BY id"
+        );
 
-msg.chat.id,
+        const backup = JSON.stringify(
+            result.rows,
+            null,
+            2
+        );
 
-"✅ All requests deleted."
+        const fs = require("fs");
 
-);
+        const fileName = `backup_${Date.now()}.json`;
 
-});
+        fs.writeFileSync(fileName, backup);
 
-// RENAME CONTENT
+        await bot.sendDocument(
+            msg.chat.id,
+            fileName,
+            {
+                caption: "✅ Database Backup"
+            }
+        );
 
-bot.onText(/\/rename (.+?) \| (.+)/, async(msg,match)=>{
+        fs.unlinkSync(fileName);
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID)) return;
+    } catch (err) {
 
-const id=match[1].trim();
+        console.log(err.message);
 
-const title=match[2].trim();
+        bot.sendMessage(
+            msg.chat.id,
+            "❌ Backup Failed."
+        );
 
-const result=await pool.query(
-
-`UPDATE contents
-SET title=$1
-WHERE content_id=$2
-RETURNING title`,
-
-[title,id]
-
-);
-
-if(result.rowCount===0){
-
-return bot.sendMessage(
-
-msg.chat.id,
-
-"❌ Content not found."
-
-);
-
-}
-
-bot.sendMessage(
-
-msg.chat.id,
-
-`✅ Renamed Successfully
-
-🎬 ${title}`
-
-);
+    }
 
 });
 
-// CHANGE QUALITY
+// ======================
+// /EXPORTUSERS
+// ======================
 
-bot.onText(/\/quality (.+?) \| (.+)/, async(msg,match)=>{
+bot.onText(/\/exportusers/, async (msg) => {
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID)) return;
+    if (!isAdmin(msg.from.id)) return;
 
-const id=match[1].trim();
+    try {
 
-const quality=match[2].trim();
+        const result = await pool.query(
+            "SELECT username FROM users ORDER BY username"
+        );
 
-const result=await pool.query(
+        let text = "";
 
-`UPDATE contents
-SET quality=$1
-WHERE content_id=$2`,
+        result.rows.forEach(user => {
 
-[quality,id]
+            text += user.username + "\n";
 
-);
+        });
 
-if(result.rowCount===0){
+        const fs = require("fs");
 
-return bot.sendMessage(
+        const fileName = "users.txt";
 
-msg.chat.id,
+        fs.writeFileSync(fileName, text);
 
-"❌ Content not found."
+        await bot.sendDocument(
+            msg.chat.id,
+            fileName,
+            {
+                caption: "👥 Users Export"
+            }
+        );
 
-);
+        fs.unlinkSync(fileName);
 
-}
+    } catch (err) {
 
-bot.sendMessage(
+        console.log(err.message);
 
-msg.chat.id,
-
-`✅ Quality Updated
-
-🎥 ${quality}`
-
-);
+    }
 
 });
 
-// DUPLICATE CHECK
+// ======================
+// /EXPORTREQUESTS
+// ======================
 
-async function duplicateContent(id){
+bot.onText(/\/exportrequests/, async (msg) => {
 
-const result=await pool.query(
+    if (!isAdmin(msg.from.id)) return;
 
-`
+    try {
 
-SELECT id
+        const result = await pool.query(
+            "SELECT * FROM requests ORDER BY created_at DESC"
+        );
 
-FROM contents
+        let text = "";
 
-WHERE content_id=$1
+        result.rows.forEach(req => {
 
-LIMIT 1
+            text +=
+`User : ${req.username}
+Request : ${req.request}
+-------------------------
 
-`,
+`;
 
-[id]
+        });
 
-);
+        const fs = require("fs");
 
-return result.rowCount>0;
+        const fileName = "requests.txt";
 
-}
+        fs.writeFileSync(fileName, text);
 
-// UPLOAD CHECK
+        await bot.sendDocument(
+            msg.chat.id,
+            fileName,
+            {
+                caption: "📩 Requests Export"
+            }
+        );
 
-async function uploadExists(id){
+        fs.unlinkSync(fileName);
 
-const exists=
+    } catch (err) {
 
-await duplicateContent(id);
+        console.log(err.message);
 
-if(exists){
+    }
 
-console.log(
+});
 
-"⚠ Duplicate Upload:",
+// ======================
+// /DBINFO
+// ======================
 
-id
+bot.onText(/\/dbinfo/, async (msg) => {
 
-);
+    if (!isAdmin(msg.from.id)) return;
 
-return true;
+    try {
 
-}
+        const contents = await pool.query(
+            "SELECT COUNT(*) FROM contents"
+        );
 
-return false;
+        const users = await pool.query(
+            "SELECT COUNT(*) FROM users"
+        );
 
-}
+        const requests = await pool.query(
+            "SELECT COUNT(*) FROM requests"
+        );
 
-// CONTENT COUNT
+        bot.sendMessage(
 
-async function totalContents(){
+            msg.chat.id,
 
-const result=await pool.query(
+`📊 Database Information
 
-`
+━━━━━━━━━━━━━━
 
-SELECT COUNT(*)
+🎬 Contents : ${contents.rows[0].count}
 
-FROM contents
+👥 Users : ${users.rows[0].count}
 
-`
+📩 Requests : ${requests.rows[0].count}
 
-);
+━━━━━━━━━━━━━━`
 
-return Number(result.rows[0].count);
+        );
 
-}
+    } catch (err) {
+
+        console.log(err.message);
+
+    }
+
+});
 
 console.log("✅ PART 14 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 15/20
-// FAVORITES + WATCH HISTORY
+// RECENT UPLOADS + RANDOM CONTENT + TRENDING
 // ===================================================
 
-// DATABASE
+// ======================
+// /RECENT
+// ======================
 
-await pool.query(`
+bot.onText(/\/recent/, async (msg) => {
 
-CREATE TABLE IF NOT EXISTS favorites(
+    try {
 
-id SERIAL PRIMARY KEY,
+        const result = await pool.query(
 
-chat_id BIGINT,
+            `
+            SELECT *
+            FROM contents
+            ORDER BY created_at DESC
+            LIMIT 15
+            `
 
-content_id TEXT,
+        );
 
-created_at TIMESTAMP DEFAULT NOW(),
+        if (!result.rows.length) {
 
-UNIQUE(chat_id,content_id)
+            return bot.sendMessage(
+                msg.chat.id,
+                "❌ No uploads found."
+            );
 
-);
+        }
 
-CREATE TABLE IF NOT EXISTS history(
+        const buttons = [];
 
-id SERIAL PRIMARY KEY,
+        result.rows.forEach(item => {
 
-chat_id BIGINT,
+            buttons.push([
 
-content_id TEXT,
+                {
 
-watched_at TIMESTAMP DEFAULT NOW()
+                    text: `🎬 ${item.title} (${item.quality})`,
 
-);
+                    callback_data: `quality_${item.content_id}`
 
-`);
+                }
 
-// SAVE HISTORY
+            ]);
 
-async function saveHistory(chatId,contentId){
+        });
 
-try{
+        bot.sendMessage(
 
-await pool.query(
+            msg.chat.id,
 
-`
+            "🆕 Recent Uploads",
 
-INSERT INTO history
+            {
 
-(chat_id,content_id)
+                reply_markup: {
 
-VALUES($1,$2)
+                    inline_keyboard: buttons
 
-`,
+                }
 
-[chatId,contentId]
+            }
 
-);
+        );
 
-}catch(err){}
+    } catch (err) {
 
-}
+        console.log(err.message);
 
-// ADD FAVORITE
-
-async function addFavorite(chatId,contentId){
-
-await pool.query(
-
-`
-
-INSERT INTO favorites
-
-(chat_id,content_id)
-
-VALUES($1,$2)
-
-ON CONFLICT(chat_id,content_id)
-
-DO NOTHING
-
-`,
-
-[chatId,contentId]
-
-);
-
-}
-
-// REMOVE FAVORITE
-
-async function removeFavorite(chatId,contentId){
-
-await pool.query(
-
-`
-
-DELETE FROM favorites
-
-WHERE chat_id=$1
-
-AND content_id=$2
-
-`,
-
-[chatId,contentId]
-
-);
-
-}
-
-// FAVORITES COMMAND
-
-bot.onText(/\/favorites/,async(msg)=>{
-
-const result=await pool.query(
-
-`
-
-SELECT c.*
-
-FROM favorites f
-
-JOIN contents c
-
-ON c.content_id=f.content_id
-
-WHERE f.chat_id=$1
-
-ORDER BY f.created_at DESC
-
-LIMIT 30
-
-`,
-
-[msg.chat.id]
-
-);
-
-if(!result.rows.length){
-
-return bot.sendMessage(
-
-msg.chat.id,
-
-"❤️ Favorites list is empty."
-
-);
-
-}
-
-const buttons=[];
-
-result.rows.forEach(item=>{
-
-buttons.push([
-
-{
-
-text:`🎬 ${item.title}`,
-
-callback_data:`quality_${item.content_id}`
-
-}
-
-]);
+    }
 
 });
 
-bot.sendMessage(
+// ======================
+// /RANDOM
+// ======================
 
-msg.chat.id,
+bot.onText(/\/random/, async (msg) => {
 
-"❤️ Your Favorites",
+    try {
 
-{
+        const result = await pool.query(
 
-reply_markup:{
+            `
+            SELECT *
+            FROM contents
+            ORDER BY RANDOM()
+            LIMIT 1
+            `
 
-inline_keyboard:buttons
+        );
 
-}
+        if (!result.rows.length) {
 
-}
+            return bot.sendMessage(
+                msg.chat.id,
+                "❌ Database is empty."
+            );
 
-);
+        }
 
-});
+        const movie = result.rows[0];
 
-// HISTORY COMMAND
+        bot.sendMessage(
 
-bot.onText(/\/history/,async(msg)=>{
+            msg.chat.id,
 
-const result=await pool.query(
+            `🎲 Random Pick
 
-`
+🎬 ${movie.title}
 
-SELECT c.*
+🎥 ${movie.quality}
 
-FROM history h
+📂 ${movie.type}`,
 
-JOIN contents c
+            {
 
-ON c.content_id=h.content_id
+                reply_markup: {
 
-WHERE h.chat_id=$1
+                    inline_keyboard: [
 
-ORDER BY h.watched_at DESC
+                        [
 
-LIMIT 20
+                            {
 
-`,
+                                text: "▶️ Watch",
 
-[msg.chat.id]
+                                callback_data: `quality_${movie.content_id}`
 
-);
+                            }
 
-if(!result.rows.length){
+                        ]
 
-return bot.sendMessage(
+                    ]
 
-msg.chat.id,
+                }
 
-"📜 No watch history."
+            }
 
-);
+        );
 
-}
+    } catch (err) {
 
-const buttons=[];
+        console.log(err.message);
 
-result.rows.forEach(item=>{
-
-buttons.push([
-
-{
-
-text:`🎬 ${item.title}`,
-
-callback_data:`quality_${item.content_id}`
-
-}
-
-]);
+    }
 
 });
 
-bot.sendMessage(
+// ======================
+// /TRENDING
+// ======================
 
-msg.chat.id,
+bot.onText(/\/trending/, async (msg) => {
 
-"📜 Watch History",
+    try {
 
-{
+        const result = await pool.query(
 
-reply_markup:{
+            `
+            SELECT *
+            FROM contents
+            ORDER BY created_at DESC
+            LIMIT 10
+            `
 
-inline_keyboard:buttons
+        );
 
-}
+        if (!result.rows.length) {
 
-}
+            return bot.sendMessage(
+                msg.chat.id,
+                "❌ No trending content."
+            );
 
-);
+        }
+
+        const buttons = [];
+
+        result.rows.forEach(item => {
+
+            buttons.push([
+
+                {
+
+                    text: `🔥 ${item.title}`,
+
+                    callback_data: `quality_${item.content_id}`
+
+                }
+
+            ]);
+
+        });
+
+        bot.sendMessage(
+
+            msg.chat.id,
+
+            "🔥 Trending Now",
+
+            {
+
+                reply_markup: {
+
+                    inline_keyboard: buttons
+
+                }
+
+            }
+
+        );
+
+    } catch (err) {
+
+        console.log(err.message);
+
+    }
 
 });
 
-// FAVORITE CALLBACKS
+// ======================
+// /LATESTMOVIES
+// ======================
 
-bot.on("callback_query",async(query)=>{
+bot.onText(/\/latestmovies/, async (msg) => {
 
-const chatId=query.message.chat.id;
+    const result = await pool.query(
 
-const data=query.data;
+        `
+        SELECT *
+        FROM contents
+        WHERE type='Movie'
+        ORDER BY created_at DESC
+        LIMIT 20
+        `
 
-if(data.startsWith("fav_")){
+    );
 
-const id=data.replace("fav_","");
+    const buttons = [];
 
-await addFavorite(chatId,id);
+    result.rows.forEach(item => {
 
-await bot.answerCallbackQuery(query.id,{
+        buttons.push([
 
-text:"❤️ Added to Favorites"
+            {
 
-});
+                text: `🎬 ${item.title}`,
 
-}
+                callback_data: `quality_${item.content_id}`
 
-if(data.startsWith("unfav_")){
+            }
 
-const id=data.replace("unfav_","");
+        ]);
 
-await removeFavorite(chatId,id);
+    });
 
-await bot.answerCallbackQuery(query.id,{
+    bot.sendMessage(
 
-text:"💔 Removed from Favorites"
+        msg.chat.id,
 
-});
+        "🎬 Latest Movies",
 
-}
+        {
+
+            reply_markup: {
+
+                inline_keyboard: buttons
+
+            }
+
+        }
+
+    );
 
 });
 
 console.log("✅ PART 15 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 16/20
-// DOWNLOAD COUNTER + POPULAR + RECOMMENDED
+// PAGINATION + NEXT/PREVIOUS NAVIGATION
 // ===================================================
 
-// DOWNLOAD TABLE
+const PAGE_SIZE = 10;
 
-await pool.query(`
+// ======================
+// SHOW PAGED LIST
+// ======================
 
-CREATE TABLE IF NOT EXISTS downloads(
+async function showPagedCollection(chatId, collection, page = 0) {
 
-id SERIAL PRIMARY KEY,
+    const result = await pool.query(
 
-chat_id BIGINT,
+        `
+        SELECT *
+        FROM contents
+        WHERE collection=$1
+        ORDER BY season,episode,title
+        LIMIT $2
+        OFFSET $3
+        `,
 
-content_id TEXT,
+        [collection, PAGE_SIZE, page * PAGE_SIZE]
 
-downloaded_at TIMESTAMP DEFAULT NOW()
+    );
 
-);
+    if (!result.rows.length) {
 
-`);
+        return bot.sendMessage(
+            chatId,
+            "❌ No content found."
+        );
 
-// SAVE DOWNLOAD
+    }
 
-async function saveDownload(chatId,contentId){
+    const buttons = [];
 
-try{
+    result.rows.forEach(item => {
 
-await pool.query(
+        buttons.push([
 
-`
+            {
 
-INSERT INTO downloads
+                text: `🎬 ${item.title}`,
 
-(chat_id,content_id)
+                callback_data: `quality_${item.content_id}`
 
-VALUES($1,$2)
+            }
 
-`,
+        ]);
 
-[chatId,contentId]
+    });
 
-);
+    const nav = [];
 
-}catch(err){}
+    if (page > 0) {
 
-}
+        nav.push({
 
-// POPULAR MOVIES
+            text: "⬅ Previous",
 
-async function getPopularMovies(){
+            callback_data: `page_${collection}_${page-1}`
 
-const result=await pool.query(
+        });
 
-`
+    }
 
-SELECT
-c.*,
-COUNT(d.id) total
+    if (result.rows.length === PAGE_SIZE) {
 
-FROM contents c
+        nav.push({
 
-LEFT JOIN downloads d
+            text: "Next ➡",
 
-ON c.content_id=d.content_id
+            callback_data: `page_${collection}_${page+1}`
 
-GROUP BY c.id
+        });
 
-ORDER BY total DESC
+    }
 
-LIMIT 10
+    if (nav.length)
+        buttons.push(nav);
 
-`
+    buttons.push([
 
-);
+        {
 
-return result.rows;
+            text: "🏠 Home",
 
-}
+            callback_data: "home"
 
-// RECOMMENDED
+        }
 
-async function getRecommended(chatId){
+    ]);
 
-const result=await pool.query(
+    await bot.sendMessage(
 
-`
+        chatId,
 
-SELECT *
+        `📂 ${collection}\n\nPage ${page+1}`,
 
-FROM contents
+        {
 
-ORDER BY RANDOM()
+            reply_markup:{
 
-LIMIT 10
+                inline_keyboard:buttons
 
-`
+            }
 
-);
+        }
 
-return result.rows;
-
-}
-
-// POPULAR COMMAND
-
-bot.onText(/\/popular/,async(msg)=>{
-
-const movies=
-
-await getPopularMovies();
-
-if(!movies.length){
-
-return bot.sendMessage(
-
-msg.chat.id,
-
-"❌ No popular content."
-
-);
+    );
 
 }
 
-const buttons=[];
+// ======================
+// PAGE CALLBACK
+// ======================
 
-movies.forEach(movie=>{
+bot.on("callback_query", async(query)=>{
 
-buttons.push([
+    if(!query.data.startsWith("page_"))
+        return;
 
-{
+    const parts=query.data.split("_");
 
-text:`🔥 ${movie.title}`,
+    const collection=parts[1];
 
-callback_data:`quality_${movie.content_id}`
+    const page=parseInt(parts[2]);
 
-}
+    await bot.answerCallbackQuery(query.id);
 
-]);
+    await showPagedCollection(
+
+        query.message.chat.id,
+
+        collection,
+
+        page
+
+    );
 
 });
 
-bot.sendMessage(
+// ======================
+// /PAGE COMMAND
+// ======================
 
-msg.chat.id,
+bot.onText(/\/page (.+)/, async(msg,match)=>{
 
-"🔥 Top Downloads",
+    await showPagedCollection(
 
-{
+        msg.chat.id,
 
-reply_markup:{
+        match[1],
 
-inline_keyboard:buttons
+        0
 
-}
-
-}
-
-);
-
-});
-
-// RECOMMENDED
-
-bot.onText(/\/recommended/,async(msg)=>{
-
-const movies=
-
-await getRecommended(
-
-msg.chat.id
-
-);
-
-const buttons=[];
-
-movies.forEach(movie=>{
-
-buttons.push([
-
-{
-
-text:`⭐ ${movie.title}`,
-
-callback_data:`quality_${movie.content_id}`
-
-}
-
-]);
-
-});
-
-bot.sendMessage(
-
-msg.chat.id,
-
-"⭐ Recommended For You",
-
-{
-
-reply_markup:{
-
-inline_keyboard:buttons
-
-}
-
-}
-
-);
-
-});
-
-// CONTINUE WATCHING
-
-bot.onText(/\/continue/,async(msg)=>{
-
-const result=await pool.query(
-
-`
-
-SELECT c.*
-
-FROM history h
-
-JOIN contents c
-
-ON h.content_id=c.content_id
-
-WHERE h.chat_id=$1
-
-ORDER BY h.watched_at DESC
-
-LIMIT 1
-
-`,
-
-[msg.chat.id]
-
-);
-
-if(!result.rows.length){
-
-return bot.sendMessage(
-
-msg.chat.id,
-
-"📺 Nothing to continue."
-
-);
-
-}
-
-const movie=result.rows[0];
-
-bot.sendMessage(
-
-msg.chat.id,
-
-"▶ Continue Watching",
-
-{
-
-reply_markup:{
-
-inline_keyboard:[
-
-[
-
-{
-
-text:movie.title,
-
-callback_data:`quality_${movie.content_id}`
-
-}
-
-]
-
-]
-
-}
-
-}
-
-);
+    );
 
 });
 
 console.log("✅ PART 16 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 17/20
-// MAINTENANCE + BAN + ANALYTICS
+// FAVORITES SYSTEM
 // ===================================================
 
-let maintenanceMode = false;
+// ======================
+// FAVORITES TABLE
+// ======================
 
-// DATABASE
+async function initFavorites(){
 
-await pool.query(`
+    try{
 
-CREATE TABLE IF NOT EXISTS banned_users(
+        await pool.query(`
 
-chat_id BIGINT PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS favorites(
 
-reason TEXT,
+            id SERIAL PRIMARY KEY,
 
-created_at TIMESTAMP DEFAULT NOW()
+            user_id BIGINT,
 
-);
+            content_id TEXT,
 
-`);
+            created_at TIMESTAMP DEFAULT NOW(),
 
-// ===========================
-// CHECK BAN
-// ===========================
+            UNIQUE(user_id,content_id)
 
-async function isBanned(chatId){
+        );
 
-const result=await pool.query(
+        `);
 
-`
+        console.log("✅ Favorites Table Ready");
 
-SELECT *
+    }catch(err){
 
-FROM banned_users
+        console.log(err.message);
 
-WHERE chat_id=$1
-
-LIMIT 1
-
-`,
-
-[chatId]
-
-);
-
-return result.rowCount>0;
+    }
 
 }
 
-// ===========================
-// BAN
-// ===========================
+initFavorites();
 
-bot.onText(/\/ban (.+)/,async(msg,match)=>{
+// ======================
+// ADD FAVORITE
+// ======================
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID))
-return;
+async function addFavorite(userId,contentId){
 
-const id=match[1].trim();
+    try{
 
-await pool.query(
+        await pool.query(
 
-`
+        `
+        INSERT INTO favorites(user_id,content_id)
+        VALUES($1,$2)
+        ON CONFLICT(user_id,content_id)
+        DO NOTHING
+        `,
 
-INSERT INTO banned_users
+        [userId,contentId]
 
-(chat_id)
+        );
 
-VALUES($1)
+        return true;
 
-ON CONFLICT(chat_id)
+    }catch(err){
 
-DO NOTHING
+        console.log(err.message);
 
-`,
+        return false;
 
-[id]
-
-);
-
-bot.sendMessage(
-
-msg.chat.id,
-
-`✅ User ${id} banned.`
-
-);
-
-});
-
-// ===========================
-// UNBAN
-// ===========================
-
-bot.onText(/\/unban (.+)/,async(msg,match)=>{
-
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID))
-return;
-
-const id=match[1].trim();
-
-await pool.query(
-
-`
-
-DELETE FROM banned_users
-
-WHERE chat_id=$1
-
-`,
-
-[id]
-
-);
-
-bot.sendMessage(
-
-msg.chat.id,
-
-`✅ User ${id} unbanned.`
-
-);
-
-});
-
-// ===========================
-// MAINTENANCE
-// ===========================
-
-bot.onText(/\/maintenance (on|off)/,async(msg,match)=>{
-
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID))
-return;
-
-maintenanceMode=(match[1]==="on");
-
-bot.sendMessage(
-
-msg.chat.id,
-
-maintenanceMode
-?"🛠 Maintenance Enabled"
-:"✅ Maintenance Disabled"
-
-);
-
-});
-
-// ===========================
-// BLOCK USERS
-// ===========================
-
-bot.on("message",async(msg)=>{
-
-if(msg.from.id==ADMIN_CHAT_ID)
-return;
-
-if(await isBanned(msg.chat.id)){
-
-return bot.sendMessage(
-
-msg.chat.id,
-
-"🚫 You are banned."
-
-);
+    }
 
 }
 
-if(maintenanceMode){
+// ======================
+// REMOVE FAVORITE
+// ======================
 
-return bot.sendMessage(
+async function removeFavorite(userId,contentId){
 
-msg.chat.id,
+    await pool.query(
 
-"🛠 Bot is under maintenance.\nPlease try again later."
+    `
+    DELETE FROM favorites
 
-);
+    WHERE user_id=$1
+
+    AND content_id=$2
+    `,
+
+    [userId,contentId]
+
+    );
 
 }
 
+// ======================
+// GET FAVORITES
+// ======================
+
+async function getFavorites(userId){
+
+    const result=await pool.query(
+
+    `
+    SELECT c.*
+
+    FROM favorites f
+
+    JOIN contents c
+
+    ON c.content_id=f.content_id
+
+    WHERE f.user_id=$1
+
+    ORDER BY f.created_at DESC
+    `,
+
+    [userId]
+
+    );
+
+    return result.rows;
+
+}
+
+// ======================
+// FAVORITE CALLBACKS
+// ======================
+
+bot.on("callback_query",async(query)=>{
+
+    const data=query.data;
+
+    const chatId=query.message.chat.id;
+
+    const userId=query.from.id;
+
+    // ADD
+
+    if(data.startsWith("fav_")){
+
+        const id=data.replace("fav_","");
+
+        await addFavorite(userId,id);
+
+        return bot.answerCallbackQuery(
+
+            query.id,
+
+            {
+
+                text:"❤️ Added to Favorites"
+
+            }
+
+        );
+
+    }
+
+    // REMOVE
+
+    if(data.startsWith("unfav_")){
+
+        const id=data.replace("unfav_","");
+
+        await removeFavorite(userId,id);
+
+        return bot.answerCallbackQuery(
+
+            query.id,
+
+            {
+
+                text:"💔 Removed"
+
+            }
+
+        );
+
+    }
+
 });
 
-// ===========================
-// ANALYTICS
-// ===========================
+// ======================
+// /FAVORITES
+// ======================
 
-bot.onText(/\/analytics/,async(msg)=>{
+bot.onText(/\/favorites/,async(msg)=>{
 
-if(String(msg.from.id)!==String(ADMIN_CHAT_ID))
-return;
+    const list=
 
-const users=
-await pool.query(
+    await getFavorites(msg.from.id);
 
-"SELECT COUNT(*) FROM users"
+    if(!list.length){
 
-);
+        return bot.sendMessage(
 
-const downloads=
-await pool.query(
+            msg.chat.id,
 
-"SELECT COUNT(*) FROM downloads"
+            "❤️ Favorites list is empty."
 
-);
+        );
 
-const favorites=
-await pool.query(
+    }
 
-"SELECT COUNT(*) FROM favorites"
+    const buttons=[];
 
-);
+    list.forEach(item=>{
 
-const history=
-await pool.query(
+        buttons.push([
 
-"SELECT COUNT(*) FROM history"
+            {
 
-);
+                text:`🎬 ${item.title}`,
 
-bot.sendMessage(
+                callback_data:`quality_${item.content_id}`
 
-msg.chat.id,
+            },
 
-`
+            {
 
-📊 Bot Analytics
+                text:"❌",
 
-━━━━━━━━━━
+                callback_data:`unfav_${item.content_id}`
 
-👥 Users :
-${users.rows[0].count}
+            }
 
-📥 Downloads :
-${downloads.rows[0].count}
+        ]);
 
-❤️ Favorites :
-${favorites.rows[0].count}
+    });
 
-📜 History :
-${history.rows[0].count}
+    bot.sendMessage(
 
-━━━━━━━━━━
+        msg.chat.id,
 
-`
+        "❤️ My Favorites",
 
-);
+        {
+
+            reply_markup:{
+
+                inline_keyboard:buttons
+
+            }
+
+        }
+
+    );
 
 });
 
 console.log("✅ PART 17 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 18/20
-// NOTIFICATION + REFERRAL + DAILY BONUS
+// WATCH HISTORY + CONTINUE WATCHING
 // ===================================================
 
-// DATABASE
+// ======================
+// HISTORY TABLE
+// ======================
 
-await pool.query(`
+async function initHistory(){
 
-CREATE TABLE IF NOT EXISTS referrals(
+    try{
 
-id SERIAL PRIMARY KEY,
+        await pool.query(`
 
-user_id BIGINT,
+        CREATE TABLE IF NOT EXISTS history(
 
-referred_by BIGINT,
+            id SERIAL PRIMARY KEY,
 
-created_at TIMESTAMP DEFAULT NOW()
+            user_id BIGINT,
 
-);
+            content_id TEXT,
 
-CREATE TABLE IF NOT EXISTS daily_bonus(
+            watched_at TIMESTAMP DEFAULT NOW(),
 
-chat_id BIGINT PRIMARY KEY,
+            UNIQUE(user_id,content_id)
 
-last_claim DATE
+        );
 
-);
+        `);
 
-`);
+        console.log("✅ History Table Ready");
 
-// ==========================================
-// NOTIFY ALL USERS
-// ==========================================
+    }catch(err){
 
-async function notifyUsers(content){
+        console.log(err.message);
 
-try{
-
-const users=await pool.query(
-
-`
-
-SELECT chat_id
-
-FROM users
-
-`
-
-);
-
-for(const user of users.rows){
-
-try{
-
-await bot.sendMessage(
-
-user.chat_id,
-
-`🆕 New Upload Available!
-
-🎬 ${content.title}
-
-🎥 ${content.quality}
-
-Tap below 👇`,
-
-{
-
-reply_markup:{
-
-inline_keyboard:[
-
-[
-
-{
-
-text:"🎬 Watch Now",
-
-callback_data:`quality_${content.content_id}`
+    }
 
 }
 
-]
+initHistory();
+
+// ======================
+// SAVE HISTORY
+// ======================
+
+async function saveHistory(userId,contentId){
+
+    try{
+
+        await pool.query(
+
+        `
+        INSERT INTO history(user_id,content_id)
+
+        VALUES($1,$2)
+
+        ON CONFLICT(user_id,content_id)
+
+        DO UPDATE SET
+
+        watched_at=NOW()
+        `,
+
+        [userId,contentId]
+
+        );
+
+    }catch(err){
+
+        console.log(err.message);
+
+    }
 
 }
 
+// ======================
+// GET HISTORY
+// ======================
+
+async function getHistory(userId){
+
+    const result=await pool.query(
+
+    `
+    SELECT c.*
+
+    FROM history h
+
+    JOIN contents c
+
+    ON c.content_id=h.content_id
+
+    WHERE h.user_id=$1
+
+    ORDER BY h.watched_at DESC
+
+    LIMIT 20
+    `,
+
+    [userId]
+
+    );
+
+    return result.rows;
+
 }
 
-);
+// ======================
+// SAVE WHEN FILE IS SENT
+// ======================
 
-}catch(e){}
+// sendFile() function లో
+// bot.sendDocument() విజయవంతంగా పూర్తయిన వెంటనే
+// ఈ line add చేయండి:
+//
+// await saveHistory(userId,file.content_id);
+//
+// sendFile function parameter ఇలా మార్చండి:
+//
+// async function sendFile(chatId,file,userId)
 
-}
+// ======================
+// /HISTORY
+// ======================
 
-}catch(err){
+bot.onText(/\/history/,async(msg)=>{
 
-console.log(err.message);
+    const list=
 
-}
+    await getHistory(msg.from.id);
 
-}
+    if(!list.length){
 
-// ==========================================
-// CALL AFTER SAVE CONTENT
-// ==========================================
+        return bot.sendMessage(
 
-// saveContent() SUCCESS అయిన వెంటనే
+            msg.chat.id,
 
-// await notifyUsers(data);
+            "📺 Watch history is empty."
 
-// ==========================================
-// REFERRAL
-// ==========================================
+        );
 
-bot.onText(
+    }
 
-/\/referral/,
+    const buttons=[];
 
-async(msg)=>{
+    list.forEach(item=>{
 
-const id=msg.from.id;
+        buttons.push([
 
-const me=await bot.getMe();
+            {
 
-const link=
+                text:`🎬 ${item.title}`,
 
-`https://t.me/${me.username}?start=ref_${id}`;
+                callback_data:`quality_${item.content_id}`
 
-bot.sendMessage(
+            }
 
-msg.chat.id,
+        ]);
 
-`👥 Invite your friends
+    });
 
-🔗 ${link}`
+    bot.sendMessage(
 
-);
+        msg.chat.id,
+
+        "🕒 Continue Watching",
+
+        {
+
+            reply_markup:{
+
+                inline_keyboard:buttons
+
+            }
+
+        }
+
+    );
 
 });
 
-// ==========================================
-// START REFERRAL
-// ==========================================
+// ======================
+// /CLEARHISTORY
+// ======================
 
-bot.onText(
+bot.onText(/\/clearhistory/,async(msg)=>{
 
-/\/start ref_(.+)/,
+    await pool.query(
 
-async(msg,match)=>{
+    `
+    DELETE FROM history
 
-const refBy=
+    WHERE user_id=$1
+    `,
 
-Number(match[1]);
+    [msg.from.id]
 
-if(refBy===msg.from.id)
-return;
+    );
 
-try{
+    bot.sendMessage(
 
-await pool.query(
+        msg.chat.id,
 
-`
+        "🗑 Watch history cleared."
 
-INSERT INTO referrals
-
-(user_id,referred_by)
-
-VALUES($1,$2)
-
-ON CONFLICT DO NOTHING
-
-`,
-
-[
-
-msg.from.id,
-
-refBy
-
-]
-
-);
-
-}catch(e){}
-
-});
-
-// ==========================================
-// LEADERBOARD
-// ==========================================
-
-bot.onText(
-
-/\/leaderboard/,
-
-async(msg)=>{
-
-const result=
-
-await pool.query(
-
-`
-
-SELECT
-
-referred_by,
-
-COUNT(*) total
-
-FROM referrals
-
-GROUP BY referred_by
-
-ORDER BY total DESC
-
-LIMIT 10
-
-`
-
-);
-
-if(!result.rows.length){
-
-return bot.sendMessage(
-
-msg.chat.id,
-
-"No leaderboard."
-
-);
-
-}
-
-let text="🏆 Top Referrals\n\n";
-
-let rank=1;
-
-for(const row of result.rows){
-
-text+=
-
-`${rank}. ${row.referred_by}
-
-👥 ${row.total} referrals
-
-`;
-
-rank++;
-
-}
-
-bot.sendMessage(
-
-msg.chat.id,
-
-text
-
-);
-
-});
-
-// ==========================================
-// DAILY BONUS
-// ==========================================
-
-bot.onText(
-
-/\/bonus/,
-
-async(msg)=>{
-
-const today=
-
-new Date()
-
-.toISOString()
-
-.slice(0,10);
-
-const result=
-
-await pool.query(
-
-`
-
-SELECT *
-
-FROM daily_bonus
-
-WHERE chat_id=$1
-
-`,
-
-[msg.chat.id]
-
-);
-
-if(
-
-result.rows.length &&
-
-result.rows[0].last_claim==today
-
-){
-
-return bot.sendMessage(
-
-msg.chat.id,
-
-"🎁 You already claimed today's bonus."
-
-);
-
-}
-
-await pool.query(
-
-`
-
-INSERT INTO daily_bonus
-
-(chat_id,last_claim)
-
-VALUES($1,$2)
-
-ON CONFLICT(chat_id)
-
-DO UPDATE SET
-
-last_claim=$2
-
-`,
-
-[
-
-msg.chat.id,
-
-today
-
-]
-
-);
-
-bot.sendMessage(
-
-msg.chat.id,
-
-"🎉 Daily Bonus Claimed!"
-
-);
+    );
 
 });
 
 console.log("✅ PART 18 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 19/20
-// CONTINUE WATCHING + TRENDING + SETTINGS
+// STATISTICS + POPULAR CONTENT
 // ===================================================
 
-// ==============================
-// DATABASE
-// ==============================
+// ======================
+// DOWNLOADS TABLE
+// ======================
 
-await pool.query(`
+async function initDownloads(){
 
-CREATE TABLE IF NOT EXISTS watch_history(
-id SERIAL PRIMARY KEY,
-chat_id BIGINT,
-content_id TEXT,
-watched_at TIMESTAMP DEFAULT NOW()
-);
+    try{
 
-CREATE TABLE IF NOT EXISTS user_settings(
-chat_id BIGINT PRIMARY KEY,
-language TEXT DEFAULT 'English'
-);
+        await pool.query(`
 
-`);
+        CREATE TABLE IF NOT EXISTS downloads(
 
-// ==============================
-// SAVE WATCH HISTORY
-// ==============================
+            id SERIAL PRIMARY KEY,
 
-async function saveWatch(chatId, contentId){
+            user_id BIGINT,
 
-try{
+            content_id TEXT,
 
-await pool.query(
-`
-INSERT INTO watch_history(chat_id,content_id)
-VALUES($1,$2)
-`,
-[chatId, contentId]
-);
+            downloaded_at TIMESTAMP DEFAULT NOW()
 
-}catch(err){
-console.log(err.message);
-}
+        );
+
+        `);
+
+        console.log("✅ Downloads Table Ready");
+
+    }catch(err){
+
+        console.log(err.message);
+
+    }
 
 }
 
-// ==============================
-// CONTINUE WATCHING
-// ==============================
+initDownloads();
 
-bot.onText(/\/continue/, async(msg)=>{
+// ======================
+// SAVE DOWNLOAD
+// ======================
 
-const result = await pool.query(
-`
-SELECT content_id
-FROM watch_history
-WHERE chat_id=$1
-ORDER BY watched_at DESC
-LIMIT 10
-`,
-[msg.chat.id]
-);
+async function saveDownload(userId,contentId){
 
-if(!result.rows.length){
-return bot.sendMessage(msg.chat.id,"📺 No watch history.");
-}
+    try{
 
-const buttons=[];
+        await pool.query(
 
-for(const row of result.rows){
+        `
+        INSERT INTO downloads(user_id,content_id)
 
-buttons.push([
-{
-text:row.content_id,
-callback_data:`quality_${row.content_id}`
-}
-]);
+        VALUES($1,$2)
+        `,
+
+        [userId,contentId]
+
+        );
+
+    }catch(err){
+
+        console.log(err.message);
+
+    }
 
 }
 
-bot.sendMessage(
-msg.chat.id,
-"▶ Continue Watching",
-{
-reply_markup:{
-inline_keyboard:buttons
-}
-}
-);
+// ===================================================
+// IMPORTANT
+// sendFile() function లో
+// bot.sendDocument() success అయిన వెంటనే
+//
+// await saveDownload(userId,file.content_id);
+//
+// add చేయాలి.
+// ===================================================
+
+// ======================
+// /STATS
+// ======================
+
+bot.onText(/\/stats/,async(msg)=>{
+
+    if(!isAdmin(msg.from.id))
+        return;
+
+    const users=await pool.query(
+        "SELECT COUNT(*) FROM users"
+    );
+
+    const contents=await pool.query(
+        "SELECT COUNT(*) FROM contents"
+    );
+
+    const downloads=await pool.query(
+        "SELECT COUNT(*) FROM downloads"
+    );
+
+    const requests=await pool.query(
+        "SELECT COUNT(*) FROM requests"
+    );
+
+    bot.sendMessage(
+
+        msg.chat.id,
+
+`📊 CineXClub Statistics
+
+━━━━━━━━━━━━━━
+
+👥 Users : ${users.rows[0].count}
+
+🎬 Contents : ${contents.rows[0].count}
+
+⬇ Downloads : ${downloads.rows[0].count}
+
+📩 Requests : ${requests.rows[0].count}
+
+━━━━━━━━━━━━━━`
+
+    );
 
 });
 
-// ==============================
-// TRENDING
-// ==============================
+// ======================
+// /TOPDOWNLOADS
+// ======================
 
-bot.onText(/\/trending/, async(msg)=>{
+bot.onText(/\/topdownloads/,async(msg)=>{
 
-const result = await pool.query(
-`
-SELECT content_id,COUNT(*) total
-FROM watch_history
-GROUP BY content_id
-ORDER BY total DESC
-LIMIT 10
-`
-);
+    const result=await pool.query(
 
-if(!result.rows.length){
-return bot.sendMessage(msg.chat.id,"No trending content.");
-}
+    `
+    SELECT
+    c.title,
+    COUNT(d.id) total
 
-let text="🔥 Trending This Week\n\n";
+    FROM downloads d
 
-let i=1;
+    JOIN contents c
 
-for(const row of result.rows){
+    ON c.content_id=d.content_id
 
-text += `${i}. ${row.content_id} (${row.total} views)\n`;
+    GROUP BY c.title
 
-i++;
+    ORDER BY total DESC
 
-}
+    LIMIT 10
+    `
 
-bot.sendMessage(msg.chat.id,text);
+    );
 
-});
+    if(!result.rows.length){
 
-// ==============================
-// RECENTLY ADDED
-// ==============================
+        return bot.sendMessage(
+            msg.chat.id,
+            "No download statistics available."
+        );
 
-bot.onText(/\/recent/, async(msg)=>{
+    }
 
-const result = await pool.query(
-`
-SELECT title,content_id
-FROM contents
-ORDER BY created_at DESC
-LIMIT 15
-`
-);
+    let text="🏆 Top Downloads\n\n";
 
-const buttons=[];
+    result.rows.forEach((item,index)=>{
 
-for(const row of result.rows){
+        text+=`${index+1}. ${item.title}
+⬇ ${item.total} Downloads
 
-buttons.push([
-{
-text:row.title,
-callback_data:`quality_${row.content_id}`
-}
-]);
+`;
 
-}
+    });
 
-bot.sendMessage(
-msg.chat.id,
-"🆕 Recently Added",
-{
-reply_markup:{
-inline_keyboard:buttons
-}
-}
-);
+    bot.sendMessage(msg.chat.id,text);
 
 });
 
-// ==============================
-// SETTINGS
-// ==============================
+// ======================
+// /POPULAR
+// ======================
 
-bot.onText(/\/settings/, async(msg)=>{
+bot.onText(/\/popular/,async(msg)=>{
 
-bot.sendMessage(
-msg.chat.id,
-"⚙ Settings",
-{
-reply_markup:{
-inline_keyboard:[
-[
-{text:"🇬🇧 English",callback_data:"lang_English"},
-{text:"🇮🇳 Telugu",callback_data:"lang_Telugu"}
-]
-]
-}
-}
-);
+    const result=await pool.query(
 
-});
+    `
+    SELECT
+    c.*
 
-// ==============================
-// LANGUAGE
-// ==============================
+    FROM downloads d
 
-bot.on("callback_query",async(query)=>{
+    JOIN contents c
 
-if(!query.data.startsWith("lang_"))
-return;
+    ON c.content_id=d.content_id
 
-const lang=query.data.replace("lang_","");
+    GROUP BY
+    c.id
 
-await pool.query(
-`
-INSERT INTO user_settings(chat_id,language)
-VALUES($1,$2)
-ON CONFLICT(chat_id)
-DO UPDATE SET language=$2
-`,
-[
-query.message.chat.id,
-lang
-]
-);
+    ORDER BY COUNT(d.id) DESC
 
-await bot.answerCallbackQuery(query.id,{
-text:`Language changed to ${lang}`
-});
+    LIMIT 15
+    `
+
+    );
+
+    if(!result.rows.length){
+
+        return bot.sendMessage(
+            msg.chat.id,
+            "❌ No popular content yet."
+        );
+
+    }
+
+    const buttons=[];
+
+    result.rows.forEach(item=>{
+
+        buttons.push([
+
+            {
+
+                text:`🔥 ${item.title}`,
+
+                callback_data:`quality_${item.content_id}`
+
+            }
+
+        ]);
+
+    });
+
+    bot.sendMessage(
+
+        msg.chat.id,
+
+        "🔥 Popular Content",
+
+        {
+
+            reply_markup:{
+
+                inline_keyboard:buttons
+
+            }
+
+        }
+
+    );
 
 });
 
 console.log("✅ PART 19 Loaded");
 // ===================================================
+// CineXClub Bot
 // PART 20/20
-// ADMIN PANEL + BROADCAST + CLEANUP + STARTUP
+// FINAL STARTUP + ERROR HANDLER + SHUTDOWN
 // ===================================================
 
-// ==============================
-// BROADCAST
-// ==============================
+// ======================
+// BOT INFO
+// ======================
 
-bot.onText(/\/broadcast (.+)/, async (msg, match) => {
+bot.getMe()
+.then(me=>{
 
-    if (String(msg.from.id) !== String(ADMIN_CHAT_ID)) return;
+    console.log("================================");
 
-    const text = match[1];
+    console.log("🤖 Bot Started Successfully");
 
-    const users = await pool.query(`
-        SELECT chat_id
-        FROM users
-    `);
+    console.log("Name :",me.first_name);
 
-    let sent = 0;
+    console.log("Username : @"+me.username);
 
-    for (const user of users.rows) {
+    console.log("================================");
 
-        try {
+})
+.catch(err=>{
 
-            await bot.sendMessage(user.chat_id, text);
+    console.log("Bot Start Error:",err.message);
 
-            sent++;
+});
 
-        } catch (e) {}
+// ======================
+// DATABASE CHECK
+// ======================
+
+setInterval(async()=>{
+
+    try{
+
+        await pool.query("SELECT NOW()");
+
+        console.log("✅ PostgreSQL Connected");
+
+    }catch(err){
+
+        console.log("❌ Database Lost:",err.message);
 
     }
 
-    bot.sendMessage(
-        msg.chat.id,
-        `✅ Broadcast Completed\n\n📤 Sent : ${sent}`
-    );
+},300000);
+
+// ======================
+// GLOBAL ERROR HANDLER
+// ======================
+
+process.on("uncaughtException",(err)=>{
+
+    console.log("UNCAUGHT EXCEPTION");
+
+    console.log(err);
 
 });
 
-// ==============================
-// STATS
-// ==============================
+process.on("unhandledRejection",(err)=>{
 
-bot.onText(/\/stats/, async (msg) => {
+    console.log("UNHANDLED PROMISE");
 
-    if (String(msg.from.id) !== String(ADMIN_CHAT_ID)) return;
-
-    const users = await pool.query("SELECT COUNT(*) FROM users");
-    const movies = await pool.query("SELECT COUNT(*) FROM contents");
-    const requests = await pool.query("SELECT COUNT(*) FROM requests");
-    const history = await pool.query("SELECT COUNT(*) FROM watch_history");
-
-    bot.sendMessage(msg.chat.id,
-
-`📊 CineXClub Statistics
-
-━━━━━━━━━━━━
-
-👤 Users : ${users.rows[0].count}
-
-🎬 Contents : ${movies.rows[0].count}
-
-📩 Requests : ${requests.rows[0].count}
-
-▶ History : ${history.rows[0].count}
-
-━━━━━━━━━━━━`
-
-    );
+    console.log(err);
 
 });
 
-// ==============================
-// DATABASE CLEANUP
-// ==============================
+// ======================
+// GRACEFUL SHUTDOWN
+// ======================
 
-bot.onText(/\/cleanup/, async (msg) => {
+async function shutdown(){
 
-    if (String(msg.from.id) !== String(ADMIN_CHAT_ID)) return;
+    console.log("Stopping Bot...");
 
-    await pool.query(`
-        DELETE FROM watch_history
-        WHERE watched_at < NOW() - INTERVAL '90 days'
-    `);
+    try{
 
-    bot.sendMessage(
-        msg.chat.id,
-        "✅ Old watch history cleaned."
-    );
+        await pool.end();
+
+        console.log("Database Closed");
+
+    }catch(err){
+
+        console.log(err.message);
+
+    }
+
+    process.exit(0);
+
+}
+
+process.on("SIGINT",shutdown);
+
+process.on("SIGTERM",shutdown);
+
+// ======================
+// BOT POLLING ERROR
+// ======================
+
+bot.on("polling_error",(err)=>{
+
+    console.log("Polling Error:");
+
+    console.log(err.message);
 
 });
 
-// ==============================
-// BOT STARTED
-// ==============================
+// ======================
+// TELEGRAM ERROR
+// ======================
 
-bot.on("polling_error", console.log);
+bot.on("webhook_error",(err)=>{
 
-process.on("unhandledRejection", console.error);
+    console.log("Webhook Error:");
 
-process.on("uncaughtException", console.error);
+    console.log(err.message);
 
-setInterval(() => {
+});
+
+// ======================
+// KEEP ALIVE LOG
+// ======================
+
+setInterval(()=>{
 
     console.log(
-        `🟢 CineXClub Running ${new Date().toLocaleString()}`
+
+        "🟢 CineXClub Bot Running :",
+
+        new Date().toLocaleString()
+
     );
 
-}, 300000);
+},600000);
 
-console.log("🚀 CineXClub Final Version Loaded Successfully");
+// ======================
+// READY
+// ======================
+
+console.log("================================");
+console.log("🎬 CineXClub Bot");
+console.log("✅ All 20 Parts Loaded");
+console.log("🚀 Production Ready");
+console.log("================================");

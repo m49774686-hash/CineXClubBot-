@@ -602,8 +602,11 @@ async function saveContent(data,fileId){
         return false;
 
     }
+// DEBUG
+bot.on("channel_post", (msg) => {
+    console.log(msg);
+});
 
-}
 
 // ======================
 // STORAGE CHANNEL

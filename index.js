@@ -606,7 +606,7 @@ async function saveContent(data,fileId){
 bot.on("channel_post", (msg) => {
     console.log(msg);
 });
-
+}
 
 // ======================
 // STORAGE CHANNEL

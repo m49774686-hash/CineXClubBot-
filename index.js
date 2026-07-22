@@ -602,8 +602,9 @@ async function saveContent(data,fileId){
         return false;
 
     }
-// DEBUG
 bot.on("channel_post", (msg) => {
+    console.log("✅ CHANNEL POST RECEIVED");
+    console.log("Channel ID:", msg.chat.id);
     console.log(msg);
 });
 }

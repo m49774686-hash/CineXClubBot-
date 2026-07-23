@@ -1,8 +1,8 @@
 // ===================================================
 // CineXClub Bot
-// Production Version
-// PART 1/5
-// Setup + Database + Bot Start
+// FINAL PRODUCTION INDEX.JS
+// PART 1
+// Setup + Environment + Database + Bot Start
 // ===================================================
 
 
@@ -14,224 +14,295 @@ const express = require("express");
 
 
 // ===================================================
-// ENV CONFIG
+// ENV
 // ===================================================
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const DATABASE_URL = process.env.DATABASE_URL;
+
 const ADMIN_ID = Number(process.env.ADMIN_ID);
-const FORCE_CHANNEL = process.env.FORCE_CHANNEL;
 
-const ADMIN_BOT_USERNAME = process.env.ADMIN_BOT_USERNAME || "";
+const FORCE_CHANNEL = process.env.FORCE_CHANNEL || "";
+
+const ADMIN_BOT_USERNAME =
+process.env.ADMIN_BOT_USERNAME || "";
 
 
 // ===================================================
-// BASIC CHECK
+// CHECK ENV
 // ===================================================
 
-if (!BOT_TOKEN) {
+if(!BOT_TOKEN){
     console.log("BOT_TOKEN missing");
     process.exit(1);
 }
 
-if (!DATABASE_URL) {
+
+if(!DATABASE_URL){
     console.log("DATABASE_URL missing");
     process.exit(1);
 }
 
 
 // ===================================================
-// EXPRESS SERVER (RENDER KEEP ALIVE)
+// EXPRESS SERVER
+// RENDER KEEP ALIVE
 // ===================================================
 
 const app = express();
 
-app.get("/", (req, res) => {
-    res.send("CineXClub Bot Running");
+
+app.get("/",(req,res)=>{
+
+    res.send(
+        "CineXClub Bot Running"
+    );
+
 });
 
-const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-    console.log(`Server running on ${PORT}`);
+const PORT =
+process.env.PORT || 3000;
+
+
+app.listen(PORT,()=>{
+
+    console.log(
+        "Server running on",
+        PORT
+    );
+
 });
 
 
 // ===================================================
-// POSTGRES CONNECTION
+// POSTGRES
 // ===================================================
 
 const pool = new Pool({
-    connectionString: DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
+
+    connectionString:DATABASE_URL,
+
+    ssl:{
+        rejectUnauthorized:false
     }
+
 });
 
 
-pool.connect()
-.then(client => {
-    console.log("PostgreSQL Connected");
-    client.release();
-})
-.catch(err => {
-    console.log("Database Connection Error:", err.message);
+pool.on(
+"error",
+(err)=>{
+
+console.log(
+"PostgreSQL Error:",
+err.message
+);
+
 });
 
 
+
 // ===================================================
-// BOT INITIALIZE
+// BOT
 // ===================================================
 
-const bot = new TelegramBot(
+const bot =
+new TelegramBot(
+
     BOT_TOKEN,
+
     {
-        polling: {
-            interval: 300,
-            autoStart: true
+        polling:{
+            interval:300,
+            autoStart:true
         }
     }
+
 );
 
 
-bot.on("polling_error", (error) => {
 
-    console.log(
-        "Polling Error:",
-        error.message
-    );
+bot.on(
+"polling_error",
+
+(error)=>{
+
+console.log(
+"Polling Error:",
+error.message
+);
 
 });
 
 
-console.log("CineXClub Bot Started");
+
+console.log(
+"CineXClub Bot Started"
+);
+
 
 
 // ===================================================
-// GLOBAL STATES
+// STATES
 // ===================================================
 
 
-// Admin upload states
-const uploadState = new Map();
+const userSearchState =
+new Map();
 
 
-// Search states
-const searchState = new Map();
+const adminUploadState =
+new Map();
 
 
-// User temporary data
-const userState = new Map();
+const adminSettingsState =
+new Map();
+
 
 
 // ===================================================
-// DATABASE INIT
+// CREATE TABLES
 // ===================================================
 
-async function createTables(){
 
-    await pool.query(`
-    
-    CREATE TABLE IF NOT EXISTS contents (
-
-        id SERIAL PRIMARY KEY,
-
-        content_id TEXT UNIQUE NOT NULL,
-
-        title TEXT NOT NULL,
-
-        type TEXT NOT NULL,
-
-        collection TEXT,
-
-        season INTEGER,
-
-        episode INTEGER,
-
-        quality TEXT,
-
-        audio TEXT,
-
-        size TEXT,
-
-        language TEXT,
-
-        file_id TEXT NOT NULL,
-
-        created_at TIMESTAMP DEFAULT NOW()
-
-    );
-
-    `);
+async function initDatabase(){
 
 
+await pool.query(`
 
-    await pool.query(`
-    
-    CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS contents (
 
-        id SERIAL PRIMARY KEY,
+id SERIAL PRIMARY KEY,
 
-        user_id BIGINT UNIQUE NOT NULL,
+content_id TEXT UNIQUE NOT NULL,
 
-        username TEXT,
+title TEXT NOT NULL,
 
-        joined_at TIMESTAMP DEFAULT NOW()
+type TEXT NOT NULL,
 
-    );
+collection TEXT,
 
-    `);
+year INTEGER,
+
+season INTEGER,
+
+episode INTEGER,
+
+quality TEXT,
+
+audio TEXT,
+
+size TEXT,
+
+language TEXT,
+
+file_id TEXT NOT NULL,
+
+created_at TIMESTAMP DEFAULT NOW()
+
+);
+
+`);
 
 
 
-    await pool.query(`
-    
-    CREATE TABLE IF NOT EXISTS requests (
 
-        id SERIAL PRIMARY KEY,
+await pool.query(`
 
-        user_id BIGINT,
+CREATE TABLE IF NOT EXISTS users (
 
-        username TEXT,
+id SERIAL PRIMARY KEY,
 
-        request TEXT,
+user_id BIGINT UNIQUE NOT NULL,
 
-        created_at TIMESTAMP DEFAULT NOW()
+username TEXT,
 
-    );
+joined_at TIMESTAMP DEFAULT NOW()
 
-    `);
+);
 
+`);
 
 
-    await pool.query(`
-    
-    CREATE TABLE IF NOT EXISTS settings (
-
-        id SERIAL PRIMARY KEY,
-
-        setting_key TEXT UNIQUE NOT NULL,
-
-        setting_value TEXT
-
-    );
-
-    `);
 
 
-    console.log("Database Tables Ready");
+await pool.query(`
+
+CREATE TABLE IF NOT EXISTS requests (
+
+id SERIAL PRIMARY KEY,
+
+user_id BIGINT,
+
+username TEXT,
+
+request TEXT,
+
+created_at TIMESTAMP DEFAULT NOW()
+
+);
+
+`);
+
+
+
+
+await pool.query(`
+
+CREATE TABLE IF NOT EXISTS settings (
+
+id SERIAL PRIMARY KEY,
+
+setting_key TEXT UNIQUE NOT NULL,
+
+setting_value TEXT
+
+);
+
+`);
+
+
+
+
+console.log(
+"Database Ready"
+);
+
 
 }
 
 
 
-createTables()
-.catch(err=>{
-    console.log(
-        "Table Creation Error:",
-        err.message
-    );
+initDatabase()
+.catch(error=>{
+
+console.log(
+"Database Init Error:",
+error.message
+);
+
 });
+
+
+
+
+// ===================================================
+// BASIC DB TEST
+// ===================================================
+
+
+async function dbQuery(query,params=[]){
+
+    const result =
+    await pool.query(
+        query,
+        params
+    );
+
+    return result;
+
+}
 
 
 
@@ -239,56 +310,74 @@ createTables()
 // PART 2 CONTINUES...
 // ===================================================
 // ===================================================
-// PART 2/5
-// Database Functions + User System + Utilities
+// PART 2
+// USER SYSTEM + FORCE JOIN + WELCOME SYSTEM
 // ===================================================
+
 
 
 // ===================================================
 // SAVE USER
 // ===================================================
 
-async function saveUser(msg) {
-
-    try {
-
-        const userId = msg.from.id;
-
-        const username =
-            msg.from.username
-            ? msg.from.username
-            : msg.from.first_name;
+async function saveUser(msg){
 
 
-        await pool.query(
-            `
-            INSERT INTO users
-            (
-                user_id,
-                username
-            )
-            VALUES
-            ($1,$2)
-
-            ON CONFLICT (user_id)
-            DO UPDATE SET
-            username=$2
-            `,
-            [
-                userId,
-                username
-            ]
-        );
+try{
 
 
-    } catch(error){
+const userId =
+msg.from.id;
 
-        console.log(
-            "Save User Error:",
-            error.message
-        );
 
-    }
+const username =
+msg.from.username ||
+msg.from.first_name ||
+"User";
+
+
+
+await dbQuery(
+
+`
+INSERT INTO users
+(
+ user_id,
+ username
+)
+
+VALUES
+($1,$2)
+
+ON CONFLICT(user_id)
+
+DO UPDATE SET
+
+username=$2
+
+`,
+
+[
+userId,
+username
+]
+
+);
+
+
+
+}catch(error){
+
+
+console.log(
+"Save User Error:",
+error.message
+);
+
+
+}
+
+
 
 }
 
@@ -296,173 +385,28 @@ async function saveUser(msg) {
 
 
 // ===================================================
-// GET CONTENT BY ID
+// USERNAME FORMAT
 // ===================================================
 
-async function getContent(contentId){
+function formatName(user){
 
-    try{
 
-        const result =
-        await pool.query(
-            `
-            SELECT *
-            FROM contents
-            WHERE content_id=$1
-            `,
-            [
-                contentId
-            ]
-        );
+let name =
+user.username ||
+user.first_name ||
+"User";
 
 
-        return result.rows[0];
+name =
+name.replace("@","");
 
 
-    }catch(error){
+return (
+name.charAt(0).toUpperCase()
++
+name.slice(1)
+);
 
-        console.log(
-            "Get Content Error:",
-            error.message
-        );
-
-        return null;
-
-    }
-
-}
-
-
-
-
-// ===================================================
-// GET SERIES EPISODES
-// ===================================================
-
-async function getEpisodes(collection,season){
-
-    try{
-
-
-        const result =
-        await pool.query(
-            `
-            SELECT *
-            FROM contents
-
-            WHERE collection=$1
-            AND season=$2
-
-            ORDER BY episode ASC
-            `,
-            [
-                collection,
-                season
-            ]
-        );
-
-
-        return result.rows;
-
-
-    }catch(error){
-
-        console.log(
-            "Episode Fetch Error:",
-            error.message
-        );
-
-        return [];
-
-    }
-
-}
-
-
-
-
-// ===================================================
-// GET ALL SERIES EPISODES
-// ===================================================
-
-async function getAllEpisodes(collection){
-
-    try{
-
-
-        const result =
-        await pool.query(
-            `
-            SELECT *
-            FROM contents
-
-            WHERE collection=$1
-
-            ORDER BY season ASC, episode ASC
-            `,
-            [
-                collection
-            ]
-        );
-
-
-        return result.rows;
-
-
-    }catch(error){
-
-        console.log(
-            "All Episode Error:",
-            error.message
-        );
-
-
-        return [];
-
-    }
-
-}
-
-
-
-
-
-// ===================================================
-// DUPLICATE CHECK
-// ===================================================
-
-async function contentExists(contentId){
-
-    try{
-
-
-        const result =
-        await pool.query(
-            `
-            SELECT id
-            FROM contents
-            WHERE content_id=$1
-            `,
-            [
-                contentId
-            ]
-        );
-
-
-        return result.rows.length > 0;
-
-
-    }catch(error){
-
-        console.log(
-            "Duplicate Check Error:",
-            error.message
-        );
-
-
-        return false;
-
-    }
 
 }
 
@@ -474,43 +418,51 @@ async function contentExists(contentId){
 // FORCE JOIN CHECK
 // ===================================================
 
-async function checkJoin(userId){
-
-    try{
+async function isJoined(userId){
 
 
-        if(!FORCE_CHANNEL){
-            return true;
-        }
+try{
 
 
-        const member =
-        await bot.getChatMember(
-            FORCE_CHANNEL,
-            userId
-        );
-
-
-        const allowed =
-        [
-            "creator",
-            "administrator",
-            "member"
-        ];
+if(!FORCE_CHANNEL)
+return true;
 
 
 
-        return allowed.includes(
-            member.status
-        );
+const member =
+await bot.getChatMember(
+
+FORCE_CHANNEL,
+
+userId
+
+);
 
 
-    }catch(error){
+
+return [
+
+"creator",
+
+"administrator",
+
+"member"
+
+].includes(
+member.status
+);
 
 
-        return false;
 
-    }
+}catch(error){
+
+
+return false;
+
+
+}
+
+
 
 }
 
@@ -519,32 +471,48 @@ async function checkJoin(userId){
 
 
 // ===================================================
-// FORCE JOIN MESSAGE
+// FORCE JOIN BUTTON
 // ===================================================
 
-function forceJoinKeyboard(){
+function joinButton(){
 
-    return {
 
-        inline_keyboard:[
+return {
 
-            [
-                {
-                    text:"📢 Join Channel",
-                    url:`https://t.me/${FORCE_CHANNEL.replace("@","")}`
-                }
-            ],
+inline_keyboard:[
 
-            [
-                {
-                    text:"✅ Joined",
-                    callback_data:"check_join"
-                }
-            ]
 
-        ]
+[
 
-    };
+{
+
+text:"📢 Join Channel",
+
+url:
+`https://t.me/${FORCE_CHANNEL.replace("@","")}`
+
+}
+
+],
+
+
+[
+
+{
+
+text:"✅ Joined",
+
+callback_data:"check_join"
+
+}
+
+]
+
+
+]
+
+};
+
 
 }
 
@@ -552,200 +520,194 @@ function forceJoinKeyboard(){
 
 
 // ===================================================
-// USERNAME FORMAT
+// SETTINGS GET
 // ===================================================
 
-function formatUsername(user){
+async function getSetting(key){
 
 
-    let name =
-    user.username
-    ? user.username
-    : user.first_name;
+try{
 
 
-    if(!name){
-        name="User";
-    }
+const result =
+await dbQuery(
 
-
-    name =
-    name.replace("@","");
-
-
-    return (
-        name.charAt(0).toUpperCase()
-        +
-        name.slice(1)
-    );
-
-}
-
-
-
-
-// ===================================================
-// GOOGLE SEARCH BUTTON
-// ===================================================
-
-function googleButton(text){
-
-
-    return {
-
-        inline_keyboard:[
-
-            [
-                {
-                    text:"🔎 Google Search",
-                    url:
-                    `https://www.google.com/search?q=${encodeURIComponent(text)}`
-                }
-            ]
-
-        ]
-
-    };
-
-}
-
-
-
-
-// ===================================================
-// ADMIN BOT BUTTON
-// ===================================================
-
-function adminBotButton(){
-
-    if(!ADMIN_BOT_USERNAME){
-        return null;
-    }
-
-
-    return {
-
-        inline_keyboard:[
-
-            [
-                {
-                    text:"⚙ Admin Bot",
-                    url:
-                    `https://t.me/${ADMIN_BOT_USERNAME.replace("@","")}`
-                }
-            ]
-
-        ]
-
-    };
-
-}
-
-
-
-// ===================================================
-// SEND FILE FUNCTION
-// ===================================================
-
-async function sendContent(chatId,content){
-
-
-    try{
-
-
-        await bot.sendVideo(
-            chatId,
-            content.file_id,
-            {
-                caption:
 `
-🎬 ${content.title}
+SELECT setting_value
 
-Quality: ${content.quality || "Unknown"}
-Audio: ${content.audio || "Unknown"}
-Language: ${content.language || "Unknown"}
+FROM settings
 
-Enjoy CineXClub 🍿
-`
-            }
-        );
+WHERE setting_key=$1
 
+`,
 
-    }catch(error){
+[key]
+
+);
 
 
-        console.log(
-            "Send File Error:",
-            error.message
-        );
+
+if(result.rows.length){
+
+return result.rows[0].setting_value;
+
+}
 
 
-        await bot.sendMessage(
-            chatId,
-            "❌ Unable to send file."
-        );
 
-    }
+return null;
+
+
+
+}catch(error){
+
+
+console.log(
+"Get Setting Error:",
+error.message
+);
+
+
+return null;
 
 
 }
 
 
 
-// ===================================================
-// PART 3 CONTINUES...
-// ===================================================
-// ===================================================
-// PART 3/5
-// START SYSTEM + WELCOME + SEARCH + CONTENT FLOW
-// ===================================================
+}
+
 
 
 
 // ===================================================
-// WELCOME IMAGE SYSTEM
+// SETTINGS SAVE
 // ===================================================
 
+async function saveSetting(key,value){
+
+
+await dbQuery(
+
+`
+
+INSERT INTO settings
+
+(
+setting_key,
+setting_value
+)
+
+VALUES
+($1,$2)
+
+
+ON CONFLICT(setting_key)
+
+DO UPDATE SET
+
+setting_value=$2
+
+`,
+
+[
+key,
+value
+]
+
+);
+
+
+
+}
+
+
+
+
+
+// ===================================================
+// GET WELCOME IMAGES
+// ===================================================
 
 async function getWelcomeImages(){
 
-    try{
 
-        const result =
-        await pool.query(
-            `
-            SELECT setting_value
-            FROM settings
-            WHERE setting_key='welcome_images'
-            `
-        );
+const data =
+await getSetting(
+"welcome_images"
+);
 
 
-        if(result.rows.length){
 
-            return JSON.parse(
-                result.rows[0].setting_value
-            );
-
-        }
+if(!data)
+return [];
 
 
-        return [];
+
+try{
 
 
-    }catch(error){
+return JSON.parse(data);
 
-        console.log(
-            "Welcome Image Error:",
-            error.message
-        );
 
-        return [];
 
-    }
+}catch(error){
+
+
+return [];
+
 
 }
 
+
+
+}
+
+
+
+
+// ===================================================
+// DEFAULT WELCOME CAPTION
+// ===================================================
+
+async function getWelcomeCaption(username){
+
+
+let caption =
+await getSetting(
+"welcome_caption"
+);
+
+
+
+if(!caption){
+
+
+caption =
+
+`
+👋 Welcome {name}
+
+🎬 CineXClub Bot
+
+Search your favourite Movies, Series & Anime.
+
+Control By:
+@CineXclub
+`;
+
+}
+
+
+
+return caption.replace(
+"{name}",
+username
+);
+
+
+
+}
 
 
 
@@ -754,96 +716,219 @@ async function getWelcomeImages(){
 // SEND WELCOME
 // ===================================================
 
-
 async function sendWelcome(msg){
 
-    const chatId = msg.chat.id;
 
-    const name =
-    formatUsername(
-        msg.from
-    );
+const chatId =
+msg.chat.id;
 
 
-    const images =
-    await getWelcomeImages();
-
-
-    const caption =
-
-`
-👋 Welcome ${name}
-
-🎬 CineXClub Bot
-
-Search Movies, Series & Anime easily.
-
-✍️ Type exact movie name.
-
-⚠️ Spelling mistakes are not supported.
-Incorrect spelling will not return files.
-
-Created By:
-@CineXClubBot
-`;
+const username =
+formatName(msg.from);
 
 
 
-    if(images.length){
-
-        const randomImage =
-        images[
-            Math.floor(
-                Math.random()*images.length
-            )
-        ];
+const caption =
+await getWelcomeCaption(
+username
+);
 
 
-        await bot.sendPhoto(
-            chatId,
-            randomImage,
-            {
-                caption:caption,
-                reply_markup:{
-                    inline_keyboard:[
-                        [
-                            {
-                                text:"⚙ Admin Bot",
-                                url:
-                                `https://t.me/${ADMIN_BOT_USERNAME.replace("@","")}`
-                            }
-                        ]
-                    ]
-                }
-            }
-        );
+
+const images =
+await getWelcomeImages();
 
 
-    }else{
+
+const keyboard = {
+
+inline_keyboard:[
 
 
-        await bot.sendMessage(
-            chatId,
-            caption,
-            {
-                reply_markup:{
-                    inline_keyboard:[
-                        [
-                            {
-                                text:"⚙ Admin Bot",
-                                url:
-                                `https://t.me/${ADMIN_BOT_USERNAME.replace("@","")}`
-                            }
-                        ]
-                    ]
-                }
-            }
-        );
+[
 
+{
 
-    }
+text:"⚙ Admin Bot",
+
+url:
+`https://t.me/${ADMIN_BOT_USERNAME.replace("@","")}`
 
 }
+
+],
+
+
+[
+
+{
+
+text:"❌ Close",
+
+callback_data:"close_welcome"
+
+}
+
+]
+
+
+]
+
+};
+
+
+
+
+
+if(images.length){
+
+
+const image =
+
+images[
+Math.floor(
+Math.random()*images.length
+)
+];
+
+
+
+await bot.sendPhoto(
+
+chatId,
+
+image,
+
+{
+
+caption:caption,
+
+reply_markup:keyboard
+
+}
+
+);
+
+
+
+}else{
+
+
+await bot.sendMessage(
+
+chatId,
+
+caption,
+
+{
+
+reply_markup:keyboard
+
+}
+
+);
+
+
+}
+
+
+
+}
+
+
+
+
+// ===================================================
+// PART 3 CONTINUES...
+// ===================================================
+// ===================================================
+// PART 3
+// START SYSTEM + SEARCH + YEAR FLOW
+// ===================================================
+
+
+
+// ===================================================
+// ADMIN PANEL
+// ===================================================
+
+async function openAdminPanel(chatId){
+
+
+await bot.sendMessage(
+
+chatId,
+
+`
+⚙ CineXClub Admin Panel
+`,
+
+{
+
+reply_markup:{
+
+inline_keyboard:[
+
+
+[
+{
+text:"📤 Upload",
+callback_data:"admin_upload"
+}
+],
+
+
+[
+{
+text:"📊 Statistics",
+callback_data:"admin_stats"
+}
+],
+
+
+[
+{
+text:"📢 Broadcast",
+callback_data:"admin_broadcast"
+}
+],
+
+
+[
+{
+text:"📥 Requests",
+callback_data:"admin_requests"
+}
+],
+
+
+[
+{
+text:"🖼 Welcome Settings",
+callback_data:"welcome_settings"
+}
+],
+
+
+[
+{
+text:"⚙ Bot Settings",
+callback_data:"bot_settings"
+}
+]
+
+
+]
+
+}
+
+}
+
+);
+
+
+}
+
 
 
 
@@ -855,6 +940,7 @@ Created By:
 
 
 bot.onText(
+
 /\/start(?:\s(.+))?/,
 
 async(msg,match)=>{
@@ -863,181 +949,163 @@ async(msg,match)=>{
 try{
 
 
-    await saveUser(msg);
+const userId =
+msg.from.id;
 
 
-    const joined =
-    await checkJoin(
-        msg.from.id
-    );
 
+await saveUser(msg);
 
 
-    if(!joined){
 
+// ADMIN DIRECT PANEL
 
-        await bot.sendMessage(
-            msg.chat.id,
-            "⚠️ Please join our channel first.",
-            {
-                reply_markup:
-                forceJoinKeyboard()
-            }
-        );
+if(userId === ADMIN_ID){
 
 
-        return;
+await openAdminPanel(
+msg.chat.id
+);
 
-    }
 
+return;
 
+}
 
 
-    const contentId =
-    match[1];
 
 
+// FORCE JOIN
 
-    if(!contentId){
+const joined =
+await isJoined(userId);
 
 
-        await sendWelcome(msg);
 
-        return;
+if(!joined){
 
-    }
 
+await bot.sendMessage(
 
+msg.chat.id,
 
+"⚠️ Please join our channel first.",
 
-    const content =
-    await getContent(
-        contentId
-    );
+{
 
+reply_markup:
+joinButton()
 
+}
 
+);
 
-    if(!content){
 
+return;
 
-        await bot.sendMessage(
-            msg.chat.id,
-            "❌ File not found.",
-            {
-                reply_markup:
-                googleButton(contentId)
-            }
-        );
+}
 
 
-        return;
 
-    }
 
+// DEEP LINK
 
+const contentId =
+match[1];
 
 
 
-    if(content.type==="Series" || content.type==="Anime"){
+if(contentId){
 
 
-        const episodes =
-        await getEpisodes(
-            content.collection,
-            content.season
-        );
+const result =
+await dbQuery(
 
+`
 
+SELECT *
 
-        let buttons=[];
+FROM contents
 
+WHERE content_id=$1
 
+`,
 
-        episodes.forEach(ep=>{
+[
+contentId
+]
 
+);
 
-            buttons.push([
 
-                {
-                    text:
-                    `Episode ${ep.episode}`,
 
-                    callback_data:
-                    `episode_${ep.id}`
-                }
+if(result.rows.length){
 
-            ]);
 
+await showContentDetails(
 
-        });
+msg.chat.id,
 
+result.rows[0],
 
+null
 
-        buttons.push([
+);
 
-            {
-                text:"📥 Send All Episodes",
 
-                callback_data:
-                `all_${content.collection}`
-            }
 
-        ]);
+}else{
 
 
+await bot.sendMessage(
 
+msg.chat.id,
 
-        await bot.sendMessage(
+"❌ File not found.",
 
-            msg.chat.id,
+{
 
-            `
-🎬 ${content.collection}
+reply_markup:{
 
-Season: ${content.season}
+inline_keyboard:[
 
-Select Episode
-            `,
+[
 
-            {
-                reply_markup:{
-                    inline_keyboard:
-                    buttons
-                }
-            }
+{
 
-        );
+text:"🔎 Google Search",
 
+url:
+`https://www.google.com/search?q=${encodeURIComponent(contentId)}`
 
+}
 
-        return;
+]
 
+]
 
-    }
+}
 
+}
 
+);
 
 
+}
 
-    await sendContent(
-        msg.chat.id,
-        content
-    );
 
 
+return;
 
-    setTimeout(()=>{
+}
 
 
-        bot.deleteMessage(
-            msg.chat.id,
-            msg.message_id
-        )
-        .catch(()=>{});
 
 
-    },600000);
+// NORMAL USER WELCOME
+
+
+await sendWelcome(msg);
 
 
 
@@ -1053,6 +1121,7 @@ error.message
 }
 
 
+
 });
 
 
@@ -1060,12 +1129,14 @@ error.message
 
 
 
+
 // ===================================================
-// SEARCH SYSTEM
+// SEARCH MESSAGE
 // ===================================================
 
 
 bot.on(
+
 "message",
 
 async(msg)=>{
@@ -1078,37 +1149,43 @@ if(!msg.text)
 return;
 
 
-if(
-msg.text.startsWith("/")
-)
+
+if(msg.text.startsWith("/"))
 return;
 
 
 
-const chatId =
-msg.chat.id;
+if(msg.from.id===ADMIN_ID)
+return;
 
 
-const search =
+
+const text =
 msg.text.trim();
 
 
 
 const result =
-await pool.query(
+await dbQuery(
 
 `
-SELECT *
+
+SELECT DISTINCT title
+
 FROM contents
 
 WHERE LOWER(title)
+
 LIKE LOWER($1)
 
-LIMIT 10
+LIMIT 20
+
 `,
 
 [
-`%${search}%`
+
+`%${text}%`
+
 ]
 
 );
@@ -1117,11 +1194,16 @@ LIMIT 10
 
 if(!result.rows.length){
 
+
 await bot.sendMessage(
 
-chatId,
+msg.chat.id,
 
-"❌ No file found.\n\nPlease check spelling."
+`
+❌ No file found.
+
+Please type exact spelling.
+`
 
 );
 
@@ -1133,42 +1215,38 @@ return;
 
 
 
-let buttons=[];
 
-
-
-result.rows.forEach(item=>{
-
-
-buttons.push([
+const buttons =
+result.rows.map(item=>[
 
 {
 
-text:
-item.title,
+text:item.title,
 
 callback_data:
-`content_${item.content_id}`
+`title_${item.title}`
 
 }
 
 ]);
 
 
-});
 
 
 
 await bot.sendMessage(
 
-chatId,
+msg.chat.id,
 
-"🔎 Search Results:",
+"🔎 Select your Movie, Series, or Anime",
 
 {
 
 reply_markup:{
-inline_keyboard:buttons
+
+inline_keyboard:
+buttons
+
 }
 
 }
@@ -1193,22 +1271,286 @@ error.message
 
 
 
+
+
+
+
+
+// ===================================================
+// SHOW YEAR SELECTION
+// ===================================================
+
+
+async function showContentDetails(
+
+chatId,
+
+content,
+
+messageId
+
+){
+
+
+
+const result =
+await dbQuery(
+
+`
+
+SELECT DISTINCT year
+
+FROM contents
+
+WHERE title=$1
+
+ORDER BY year
+
+`,
+
+[
+content.title
+]
+
+);
+
+
+
+const buttons =
+
+result.rows.map(row=>[
+
+{
+
+text:String(row.year),
+
+callback_data:
+`year_${content.title}_${row.year}`
+
+}
+
+]);
+
+
+
+
+
+const text =
+
+`
+🎬 ${content.title}
+
+Select Year:
+`;
+
+
+
+
+
+if(messageId){
+
+
+await bot.editMessageText(
+
+text,
+
+{
+
+chat_id:chatId,
+
+message_id:messageId,
+
+reply_markup:{
+
+inline_keyboard:
+buttons
+
+}
+
+}
+
+);
+
+
+
+}else{
+
+
+await bot.sendMessage(
+
+chatId,
+
+text,
+
+{
+
+reply_markup:{
+
+inline_keyboard:
+buttons
+
+}
+
+}
+
+);
+
+
+
+}
+
+
+
+}
+
+
+
+
+
 // ===================================================
 // PART 4 CONTINUES...
 // ===================================================
 // ===================================================
-// PART 4/5
-// CALLBACK SYSTEM + ADMIN PANEL + UPLOAD SYSTEM
+// PART 4
+// CALLBACK SYSTEM + YEAR + QUALITY + FILE DELIVERY
 // ===================================================
 
 
 
 // ===================================================
-// SINGLE CALLBACK HANDLER
+// AUTO DELETE TIME
+// ===================================================
+
+async function getDeleteTime(){
+
+
+const value =
+await getSetting(
+"auto_delete_time"
+);
+
+
+
+if(!value)
+return 1800;
+
+
+return Number(value);
+
+
+}
+
+
+
+
+
+
+// ===================================================
+// SEND FILE
+// ===================================================
+
+async function sendFile(chatId,content){
+
+
+try{
+
+
+const message =
+await bot.sendVideo(
+
+chatId,
+
+content.file_id,
+
+{
+
+caption:
+
+`
+🎬 ${content.title}
+
+📅 Year: ${content.year || "N/A"}
+
+🎞 Quality: ${content.quality || "N/A"}
+
+🔊 Audio: ${content.audio || "N/A"}
+
+🌐 Language: ${content.language || "N/A"}
+
+🍿 Enjoy CineXClub
+
+Control By:
+@CineXclub
+`
+
+}
+
+);
+
+
+
+
+
+const deleteTime =
+await getDeleteTime();
+
+
+
+
+
+setTimeout(()=>{
+
+
+bot.deleteMessage(
+
+chatId,
+
+message.message_id
+
+)
+
+.catch(()=>{});
+
+
+
+},
+
+deleteTime * 1000
+
+);
+
+
+
+
+
+}catch(error){
+
+
+console.log(
+"Send File Error:",
+error.message
+);
+
+
+
+}
+
+
+
+}
+
+
+
+
+
+
+// ===================================================
+// CALLBACK HANDLER
 // ===================================================
 
 
 bot.on(
+
 "callback_query",
 
 async(query)=>{
@@ -1220,55 +1562,117 @@ try{
 const data =
 query.data;
 
+
 const chatId =
 query.message.chat.id;
 
-const userId =
-query.from.id;
+
+const messageId =
+query.message.message_id;
 
 
 
-// ==============================
+// =============================
+// CLOSE WELCOME
+// =============================
+
+
+if(data==="close_welcome"){
+
+
+await bot.deleteMessage(
+
+chatId,
+
+messageId
+
+)
+.catch(()=>{});
+
+
+
+await bot.sendMessage(
+
+chatId,
+
+`
+
+🔎 Search your Movie, Series, or Anime name
+
+Example:
+Iron Man 1
+Stranger Things S01E01
+Naruto Episode 1
+
+⚠️ Please type the exact spelling.
+Incorrect spelling will not return any file.
+
+`
+
+);
+
+
+
+return;
+
+}
+
+
+
+
+
+
+// =============================
 // CHECK JOIN
-// ==============================
+// =============================
 
 
 if(data==="check_join"){
 
 
 const joined =
-await checkJoin(userId);
+await isJoined(
+query.from.id
+);
+
 
 
 if(joined){
 
 
 await bot.answerCallbackQuery(
+
 query.id,
+
 {
 text:"✅ Joined Successfully"
 }
+
 );
 
 
-await bot.sendMessage(
-chatId,
-"✅ You can use CineXClub now."
+await sendWelcome(
+query.message
 );
+
 
 
 }else{
 
 
 await bot.answerCallbackQuery(
+
 query.id,
+
 {
-text:"❌ Join channel first"
+text:"❌ Please join channel first"
 }
+
 );
 
 
 }
+
 
 
 return;
@@ -1279,92 +1683,41 @@ return;
 
 
 
-// ==============================
-// CONTENT BUTTON
-// ==============================
+
+// =============================
+// TITLE SELECT
+// =============================
 
 
-if(
-data.startsWith("content_")
-){
+if(data.startsWith("title_")){
 
 
-const contentId =
+const title =
 data.replace(
-"content_",
-""
-);
-
-
-
-const content =
-await getContent(
-contentId
-);
-
-
-
-if(content){
-
-
-await sendContent(
-chatId,
-content
-);
-
-
-setTimeout(()=>{
-
-
-bot.deleteMessage(
-chatId,
-query.message.message_id
-)
-.catch(()=>{});
-
-
-},600000);
-
-
-}
-
-
-return;
-
-}
-
-
-
-
-
-// ==============================
-// EPISODE BUTTON
-// ==============================
-
-
-if(
-data.startsWith("episode_")
-){
-
-
-const id =
-data.replace(
-"episode_",
+"title_",
 ""
 );
 
 
 
 const result =
-await pool.query(
+await dbQuery(
 
 `
+
 SELECT *
+
 FROM contents
-WHERE id=$1
+
+WHERE title=$1
+
+LIMIT 1
+
 `,
 
-[id]
+[
+title
+]
 
 );
 
@@ -1373,9 +1726,14 @@ WHERE id=$1
 if(result.rows.length){
 
 
-await sendContent(
+await showContentDetails(
+
 chatId,
-result.rows[0]
+
+result.rows[0],
+
+messageId
+
 );
 
 
@@ -1391,73 +1749,46 @@ return;
 
 
 
-// ==============================
-// ALL EPISODES
-// ==============================
 
 
-if(
-data.startsWith("all_")
-){
+// =============================
+// YEAR SELECT
+// =============================
 
 
-const collection =
-data.replace(
-"all_",
-""
-);
+if(data.startsWith("year_")){
 
 
-
-const episodes =
-await getAllEpisodes(
-collection
-);
+const parts =
+data.split("_");
 
 
-
-for(const ep of episodes){
-
-
-await sendContent(
-chatId,
-ep
-);
+const title =
+parts[1];
 
 
-}
-
-
-return;
-
-}
+const year =
+parts[2];
 
 
 
+await bot.editMessageText(
 
+`
 
-// ==============================
-// ADMIN PANEL OPEN
-// ==============================
+🎬 ${title}
 
+📅 Year: ${year}
 
-if(
-data==="admin_panel"
-){
+Select Quality:
 
-
-if(userId!==ADMIN_ID)
-return;
-
-
-
-await bot.sendMessage(
-
-chatId,
-
-"⚙ Admin Panel",
+`,
 
 {
+
+chat_id:chatId,
+
+message_id:messageId,
 
 reply_markup:{
 
@@ -1465,34 +1796,44 @@ inline_keyboard:[
 
 
 [
+
 {
-text:"📤 Upload",
-callback_data:"upload_start"
+
+text:"480p",
+
+callback_data:
+`quality_${title}_${year}`
+
 }
+
 ],
 
 
 [
+
 {
-text:"📊 Statistics",
-callback_data:"stats"
+
+text:"720p",
+
+callback_data:
+`quality_${title}_${year}`
+
 }
+
 ],
 
 
 [
-{
-text:"📥 Requests",
-callback_data:"requests"
-}
-],
 
-
-[
 {
-text:"📢 Broadcast",
-callback_data:"broadcast"
+
+text:"1080p",
+
+callback_data:
+`quality_${title}_${year}`
+
 }
+
 ]
 
 
@@ -1514,26 +1855,275 @@ return;
 
 
 
-// ==============================
-// UPLOAD START
-// ==============================
 
 
-if(
-data==="upload_start"
-){
+// =============================
+// QUALITY SELECT
+// =============================
 
 
-if(userId!==ADMIN_ID)
+if(data.startsWith("quality_")){
+
+
+const parts =
+data.split("_");
+
+
+const title =
+parts[1];
+
+
+const year =
+parts[2];
+
+
+
+
+await bot.editMessageText(
+
+`
+
+⏳ Fetching your file...
+
+Please wait.
+
+`,
+
+{
+
+chat_id:chatId,
+
+message_id:messageId
+
+}
+
+);
+
+
+
+
+
+const result =
+await dbQuery(
+
+`
+
+SELECT *
+
+FROM contents
+
+WHERE title=$1
+
+AND year=$2
+
+LIMIT 1
+
+`,
+
+[
+
+title,
+
+Number(year)
+
+]
+
+);
+
+
+
+
+
+if(result.rows.length){
+
+
+await bot.deleteMessage(
+
+chatId,
+
+messageId
+
+)
+.catch(()=>{});
+
+
+
+await sendFile(
+
+chatId,
+
+result.rows[0]
+
+);
+
+
+
+}else{
+
+
+await bot.editMessageText(
+
+"❌ File not found.",
+
+{
+
+chat_id:chatId,
+
+message_id:messageId
+
+}
+
+);
+
+
+}
+
+
+
+return;
+
+}
+
+
+
+
+
+}catch(error){
+
+
+console.log(
+"Callback Error:",
+error.message
+);
+
+
+
+}
+
+
+});
+
+
+
+
+// ===================================================
+// PART 5 CONTINUES...
+// ===================================================
+// ===================================================
+// PART 5
+// ADMIN UPLOAD + SETTINGS + FILE SAVE
+// ===================================================
+
+
+
+// ===================================================
+// CAPTION PARSER
+// ===================================================
+
+function parseCaption(text){
+
+
+const data={};
+
+
+if(!text)
+return data;
+
+
+
+text.split("\n").forEach(line=>{
+
+
+const index =
+line.indexOf(":");
+
+
+
+if(index === -1)
 return;
 
 
 
-uploadState.set(
+const key =
+line
+.substring(0,index)
+.trim()
+.toLowerCase();
+
+
+
+const value =
+line
+.substring(index+1)
+.trim();
+
+
+
+data[key]=value;
+
+
+
+});
+
+
+
+return data;
+
+
+}
+
+
+
+
+
+// ===================================================
+// ADMIN CALLBACK MENU
+// ===================================================
+
+
+bot.on(
+
+"callback_query",
+
+async(query)=>{
+
+
+try{
+
+
+const data =
+query.data;
+
+
+const chatId =
+query.message.chat.id;
+
+
+const userId =
+query.from.id;
+
+
+
+if(userId !== ADMIN_ID)
+return;
+
+
+
+
+// UPLOAD START
+
+if(data==="admin_upload"){
+
+
+
+adminUploadState.set(
+
 userId,
+
 {
 step:"type"
 }
+
 );
 
 
@@ -1542,36 +2132,34 @@ await bot.sendMessage(
 
 chatId,
 
-"Select Content Type",
+"Select Upload Type",
 
 {
 
 reply_markup:{
 
 inline_keyboard:[
-
 
 [
 {
 text:"🎬 Movie",
-callback_data:"type_Movie"
+callback_data:"upload_type_Movie"
 }
 ],
 
 [
 {
 text:"📺 Series",
-callback_data:"type_Series"
+callback_data:"upload_type_Series"
 }
 ],
 
 [
 {
 text:"🔥 Anime",
-callback_data:"type_Anime"
+callback_data:"upload_type_Anime"
 }
 ]
-
 
 ]
 
@@ -1580,6 +2168,7 @@ callback_data:"type_Anime"
 }
 
 );
+
 
 
 return;
@@ -1590,25 +2179,20 @@ return;
 
 
 
-// ==============================
-// SELECT TYPE
-// ==============================
+// TYPE SELECT
 
-
-if(
-data.startsWith("type_")
-){
+if(data.startsWith("upload_type_")){
 
 
 const type =
 data.replace(
-"type_",
+"upload_type_",
 ""
 );
 
 
 
-uploadState.set(
+adminUploadState.set(
 
 userId,
 
@@ -1633,28 +2217,26 @@ reply_markup:{
 
 inline_keyboard:[
 
-
 [
 {
 text:"480p",
-callback_data:"quality_480p"
+callback_data:"upload_quality_480p"
 }
 ],
 
 [
 {
 text:"720p",
-callback_data:"quality_720p"
+callback_data:"upload_quality_720p"
 }
 ],
 
 [
 {
 text:"1080p",
-callback_data:"quality_1080p"
+callback_data:"upload_quality_1080p"
 }
 ]
-
 
 ]
 
@@ -1674,26 +2256,22 @@ return;
 
 
 
-// ==============================
+
 // QUALITY SELECT
-// ==============================
 
-
-if(
-data.startsWith("quality_")
-){
+if(data.startsWith("upload_quality_")){
 
 
 const quality =
 data.replace(
-"quality_",
+"upload_quality_",
 ""
 );
 
 
 
 let state =
-uploadState.get(
+adminUploadState.get(
 userId
 );
 
@@ -1709,10 +2287,11 @@ quality;
 
 
 state.step =
-"details";
+"caption";
 
 
-uploadState.set(
+
+adminUploadState.set(
 userId,
 state
 );
@@ -1724,12 +2303,13 @@ await bot.sendMessage(
 chatId,
 
 `
-Send caption details.
+Send Caption:
 
-Format:
+Example:
 
-ID:
-Title:
+ID: ironman1
+Title: Iron Man 1
+Year: 2008
 Collection:
 Season:
 Episode:
@@ -1741,6 +2321,7 @@ Size:
 );
 
 
+
 return;
 
 }
@@ -1749,27 +2330,22 @@ return;
 
 
 
-// ==============================
+
 // STATISTICS
-// ==============================
 
-
-if(
-data==="stats"
-){
-
-
-if(userId!==ADMIN_ID)
-return;
+if(data==="admin_stats"){
 
 
 const result =
-await pool.query(
+await dbQuery(
+
 `
 SELECT COUNT(*) 
 FROM contents
 `
+
 );
+
 
 
 await bot.sendMessage(
@@ -1777,16 +2353,90 @@ await bot.sendMessage(
 chatId,
 
 `
+
 📊 Total Files:
+
 ${result.rows[0].count}
+
 `
 
 );
 
 
+
 return;
 
 }
+
+
+
+
+
+
+// WELCOME SETTINGS
+
+if(data==="welcome_settings"){
+
+
+await bot.sendMessage(
+
+chatId,
+
+`
+
+🖼 Welcome Settings
+
+
+Choose:
+
+`
+
+,
+
+{
+
+reply_markup:{
+
+inline_keyboard:[
+
+
+[
+{
+text:"🖼 Change Images",
+callback_data:"change_images"
+}
+],
+
+[
+{
+text:"✏️ Change Caption",
+callback_data:"change_caption"
+}
+],
+
+[
+{
+text:"👁 Preview",
+callback_data:"preview_welcome"
+}
+]
+
+
+]
+
+}
+
+}
+
+);
+
+
+
+return;
+
+}
+
+
 
 
 
@@ -1795,9 +2445,10 @@ return;
 
 
 console.log(
-"Callback Error:",
+"Admin Callback Error:",
 error.message
 );
+
 
 
 }
@@ -1807,12 +2458,17 @@ error.message
 
 
 
+
+
+
+
 // ===================================================
-// ADMIN TEXT HANDLER
+// ADMIN MESSAGE RECEIVER
 // ===================================================
 
 
 bot.on(
+
 "message",
 
 async(msg)=>{
@@ -1826,37 +2482,36 @@ msg.from.id;
 
 
 
-if(userId!==ADMIN_ID)
+if(userId !== ADMIN_ID)
 return;
 
 
 
 const state =
-uploadState.get(
+adminUploadState.get(
 userId
 );
 
 
 
-if(!state)
-return;
-
-
+// SAVE CAPTION
 
 if(
-state.step==="details"
-&& msg.text
+state &&
+state.step==="caption" &&
+msg.text
 ){
 
 
 state.caption =
 msg.text;
 
+
 state.step =
 "file";
 
 
-uploadState.set(
+adminUploadState.set(
 userId,
 state
 );
@@ -1867,9 +2522,10 @@ await bot.sendMessage(
 
 msg.chat.id,
 
-"📤 Now send the video/file."
+"📤 Now send the video file."
 
 );
+
 
 
 return;
@@ -1878,125 +2534,15 @@ return;
 
 
 
-}catch(error){
-
-
-console.log(
-"Admin Message Error:",
-error.message
-);
-
-
-}
-
-
-});
 
 
 
-// ===================================================
-// PART 5 CONTINUES...
-// ===================================================
-// ===================================================
-// PART 5/5
-// FILE RECEIVER + DATABASE SAVE + FINAL SYSTEM
-// ===================================================
-
-
-
-// ===================================================
-// PARSE CAPTION DETAILS
-// ===================================================
-
-function parseCaption(text){
-
-
-    const data={};
-
-
-    const lines =
-    text.split("\n");
-
-
-    lines.forEach(line=>{
-
-
-        const parts =
-        line.split(":");
-
-
-        if(parts.length < 2)
-            return;
-
-
-        const key =
-        parts[0]
-        .trim()
-        .toLowerCase();
-
-
-        const value =
-        parts.slice(1)
-        .join(":")
-        .trim();
-
-
-
-        data[key]=value;
-
-
-    });
-
-
-    return data;
-
-}
-
-
-
-
-
-// ===================================================
-// FILE UPLOAD RECEIVER
-// ===================================================
-
-
-bot.on(
-"message",
-
-async(msg)=>{
-
-
-try{
-
-
-const userId =
-msg.from.id;
-
-
-
-if(userId!==ADMIN_ID)
-return;
-
-
-
-const state =
-uploadState.get(
-userId
-);
-
-
-
-if(!state)
-return;
-
-
+// RECEIVE FILE
 
 if(
-state.step!=="file"
-)
-return;
-
+state &&
+state.step==="file"
+){
 
 
 let fileId = null;
@@ -2005,42 +2551,24 @@ let fileId = null;
 
 if(msg.video){
 
-
 fileId =
 msg.video.file_id;
-
 
 }
 
 
 
-else if(msg.document){
-
+if(msg.document){
 
 fileId =
 msg.document.file_id;
 
-
 }
 
 
 
-if(!fileId){
-
-
-await bot.sendMessage(
-
-msg.chat.id,
-
-"❌ Please send only video or document file."
-
-);
-
-
+if(!fileId)
 return;
-
-}
-
 
 
 
@@ -2053,32 +2581,57 @@ state.caption
 
 
 const contentId =
-details.id
-||
-Date.now().toString();
+details.id;
+
+
+
+if(!contentId){
+
+await bot.sendMessage(
+msg.chat.id,
+"❌ ID missing."
+);
+
+return;
+
+}
+
+
 
 
 
 const exists =
-await contentExists(
+await dbQuery(
+
+`
+SELECT id
+FROM contents
+WHERE content_id=$1
+`,
+
+[
 contentId
+]
+
 );
 
 
 
-if(exists){
+if(exists.rows.length){
 
 
 await bot.sendMessage(
 
 msg.chat.id,
 
-"❌ Duplicate Content ID already exists."
+"❌ Duplicate ID."
 
 );
 
 
-uploadState.delete(userId);
+adminUploadState.delete(
+userId
+);
 
 
 return;
@@ -2089,7 +2642,9 @@ return;
 
 
 
-await pool.query(
+
+
+await dbQuery(
 
 `
 
@@ -2098,34 +2653,27 @@ INSERT INTO contents
 (
 
 content_id,
-
 title,
-
 type,
-
 collection,
-
+year,
 season,
-
 episode,
-
 quality,
-
 audio,
-
 size,
-
 language,
-
 file_id
 
 )
 
 VALUES
 
-($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 
-`,
+`
+
+,
 
 [
 
@@ -2137,9 +2685,11 @@ state.type,
 
 details.collection || null,
 
-details.season ? Number(details.season) : null,
+details.year ? Number(details.year):null,
 
-details.episode ? Number(details.episode) : null,
+details.season ? Number(details.season):null,
+
+details.episode ? Number(details.episode):null,
 
 state.quality,
 
@@ -2158,39 +2708,31 @@ fileId
 
 
 
-
 await bot.sendMessage(
 
 msg.chat.id,
 
-`
-✅ Upload Successful
-
-ID:
-${contentId}
-
-Quality:
-${state.quality}
-
-Type:
-${state.type}
-`
+"✅ Upload Successful"
 
 );
 
 
 
-uploadState.delete(
+adminUploadState.delete(
 userId
 );
 
 
 
+}
+
+
+
 }catch(error){
 
 
 console.log(
-"Upload Error:",
+"Admin Message Error:",
 error.message
 );
 
@@ -2204,104 +2746,154 @@ error.message
 
 
 
+// ===================================================
+// PART 6 CONTINUES...
+// ===================================================
+// ===================================================
+// PART 6
+// WELCOME SETTINGS + BOT SETTINGS + BROADCAST + FINAL
+// ===================================================
+
 
 
 // ===================================================
-// REQUEST MOVIE BUTTON
+// ADMIN SETTINGS STATES
 // ===================================================
 
 
-bot.onText(
-/\/request (.+)/,
+const welcomeImageState = new Map();
 
-async(msg,match)=>{
+const broadcastState = new Map();
+
+
+
+
+// ===================================================
+// WELCOME SETTINGS CALLBACK
+// ===================================================
+
+
+bot.on(
+"callback_query",
+async(query)=>{
 
 
 try{
 
 
-await pool.query(
+const data =
+query.data;
 
-`
+const userId =
+query.from.id;
 
-INSERT INTO requests
-
-(
-user_id,
-username,
-request
-)
-
-VALUES
-
-($1,$2,$3)
-
-`,
-
-[
-
-msg.from.id,
-
-msg.from.username || msg.from.first_name,
-
-match[1]
-
-]
-
-);
+const chatId =
+query.message.chat.id;
 
 
 
-await bot.sendMessage(
-
-msg.chat.id,
-
-"✅ Your request has been submitted."
-
-);
-
-
-
-}catch(error){
-
-
-console.log(
-"Request Error:",
-error.message
-);
-
-
-}
-
-
-});
-
-
-
-
-
-
-// ===================================================
-// ADMIN COMMAND
-// ===================================================
-
-
-bot.onText(
-/\/admin/,
-
-async(msg)=>{
-
-
-if(msg.from.id!==ADMIN_ID)
+if(userId !== ADMIN_ID)
 return;
 
 
 
+// CHANGE IMAGES
+
+if(data==="change_images"){
+
+
+welcomeImageState.set(
+userId,
+[]
+);
+
+
 await bot.sendMessage(
 
-msg.chat.id,
+chatId,
 
-"⚙ Admin Panel",
+`
+🖼 Send 3 welcome images.
+
+Send photos one by one.
+After 3 images send /done
+`
+
+);
+
+
+return;
+
+}
+
+
+
+
+// CHANGE CAPTION
+
+if(data==="change_caption"){
+
+
+adminSettingsState.set(
+
+userId,
+
+{
+step:"caption"
+}
+
+);
+
+
+
+await bot.sendMessage(
+
+chatId,
+
+"✏️ Send new welcome caption."
+
+);
+
+
+
+return;
+
+}
+
+
+
+
+
+// PREVIEW
+
+if(data==="preview_welcome"){
+
+
+await sendWelcome(
+query.message
+);
+
+
+
+return;
+
+}
+
+
+
+
+
+// BOT SETTINGS
+
+if(data==="bot_settings"){
+
+
+
+await bot.sendMessage(
+
+chatId,
+
+"⚙ Bot Settings",
 
 {
 
@@ -2312,24 +2904,32 @@ inline_keyboard:[
 
 [
 {
-text:"📤 Upload",
-callback_data:"upload_start"
+text:"⏱ 5 Minutes",
+callback_data:"delete_300"
 }
 ],
 
 
 [
 {
-text:"📊 Statistics",
-callback_data:"stats"
+text:"⏱ 10 Minutes",
+callback_data:"delete_600"
 }
 ],
 
 
 [
 {
-text:"📥 Requests",
-callback_data:"requests"
+text:"⏱ 30 Minutes",
+callback_data:"delete_1800"
+}
+],
+
+
+[
+{
+text:"❌ Disable",
+callback_data:"delete_0"
 }
 ]
 
@@ -2341,6 +2941,414 @@ callback_data:"requests"
 }
 
 );
+
+
+
+return;
+
+}
+
+
+
+
+
+// AUTO DELETE SET
+
+if(data.startsWith("delete_")){
+
+
+const time =
+data.replace(
+"delete_",
+""
+);
+
+
+
+await saveSetting(
+
+"auto_delete_time",
+
+time
+
+);
+
+
+
+await bot.sendMessage(
+
+chatId,
+
+"✅ Auto Delete Updated"
+
+);
+
+
+
+return;
+
+}
+
+
+
+
+
+// BROADCAST
+
+if(data==="admin_broadcast"){
+
+
+broadcastState.set(
+userId,
+true
+);
+
+
+await bot.sendMessage(
+
+chatId,
+
+"📢 Send broadcast message."
+
+);
+
+
+return;
+
+}
+
+
+
+}catch(error){
+
+
+console.log(
+"Settings Callback Error:",
+error.message
+);
+
+
+}
+
+
+
+});
+
+
+
+
+
+
+
+// ===================================================
+// ADMIN SETTINGS MESSAGE HANDLER
+// ===================================================
+
+
+bot.on(
+"message",
+
+async(msg)=>{
+
+
+try{
+
+
+const userId =
+msg.from.id;
+
+
+
+if(userId !== ADMIN_ID)
+return;
+
+
+
+// WELCOME IMAGES
+
+if(
+welcomeImageState.has(userId)
+){
+
+
+if(msg.text==="/done"){
+
+
+const images =
+welcomeImageState.get(userId);
+
+
+
+await saveSetting(
+
+"welcome_images",
+
+JSON.stringify(images)
+
+);
+
+
+
+welcomeImageState.delete(
+userId
+);
+
+
+
+await bot.sendMessage(
+
+msg.chat.id,
+
+"✅ Welcome Images Updated"
+
+);
+
+
+
+return;
+
+}
+
+
+
+
+if(msg.photo){
+
+
+const photo =
+msg.photo[
+msg.photo.length-1
+]
+.file_id;
+
+
+
+let images =
+welcomeImageState.get(userId);
+
+
+
+images.push(photo);
+
+
+
+welcomeImageState.set(
+userId,
+images
+);
+
+
+
+await bot.sendMessage(
+
+msg.chat.id,
+
+`Image Saved (${images.length}/3)`
+
+);
+
+
+
+}
+
+
+
+return;
+
+}
+
+
+
+
+
+// WELCOME CAPTION
+
+const setting =
+adminSettingsState.get(
+userId
+);
+
+
+
+if(
+setting &&
+setting.step==="caption"
+){
+
+
+
+await saveSetting(
+
+"welcome_caption",
+
+msg.text
+
+);
+
+
+
+adminSettingsState.delete(
+userId
+);
+
+
+
+await bot.sendMessage(
+
+msg.chat.id,
+
+"✅ Welcome Caption Updated"
+
+);
+
+
+
+return;
+
+}
+
+
+
+
+
+
+// BROADCAST
+
+if(
+broadcastState.has(userId)
+){
+
+
+
+const users =
+await dbQuery(
+
+`
+SELECT user_id
+FROM users
+`
+
+);
+
+
+
+for(
+const user of users.rows
+){
+
+
+await bot.sendMessage(
+
+user.user_id,
+
+msg.text
+
+)
+.catch(()=>{});
+
+
+}
+
+
+
+broadcastState.delete(
+userId
+);
+
+
+
+await bot.sendMessage(
+
+msg.chat.id,
+
+"✅ Broadcast Completed"
+
+);
+
+
+
+}
+
+
+
+}catch(error){
+
+
+console.log(
+"Settings Message Error:",
+error.message
+);
+
+
+
+}
+
+
+});
+
+
+
+
+
+
+// ===================================================
+// REQUESTS VIEW
+// ===================================================
+
+
+bot.on(
+"text",
+async(msg)=>{
+
+
+if(msg.text!=="/requests")
+return;
+
+
+if(msg.from.id!==ADMIN_ID)
+return;
+
+
+
+const result =
+await dbQuery(
+
+`
+SELECT *
+FROM requests
+ORDER BY id DESC
+LIMIT 20
+`
+
+);
+
+
+
+let text =
+"📥 Requests\n\n";
+
+
+
+result.rows.forEach(r=>{
+
+
+text +=
+`${r.username}: ${r.request}\n`;
+
+
+
+});
+
+
+
+await bot.sendMessage(
+
+msg.chat.id,
+
+text
+
+);
+
 
 
 });
@@ -2357,14 +3365,15 @@ callback_data:"requests"
 
 
 process.on(
+
 "uncaughtException",
 
-(err)=>{
+(error)=>{
 
 
 console.log(
 "System Error:",
-err.message
+error.message
 );
 
 
@@ -2373,14 +3382,15 @@ err.message
 
 
 process.on(
+
 "unhandledRejection",
 
-(err)=>{
+(error)=>{
 
 
 console.log(
 "Promise Error:",
-err
+error
 );
 
 
@@ -2389,12 +3399,13 @@ err
 
 
 
-
 // ===================================================
-// BOT READY
+// FINAL READY
 // ===================================================
 
 
 console.log(
-"CineXClub Production Bot Online 🚀"
+
+"🚀 CineXClub Production Bot Ready"
+
 );

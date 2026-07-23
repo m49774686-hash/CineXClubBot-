@@ -560,15 +560,12 @@ bot.on("callback_query", async (query) => {
 
     const chatId = query.message.chat.id;
     const userId = query.from.id;
-
-    const joined = await checkForceJoin(userId);
     const data = query.data;
 
     try {
-        if(data.startsWith("download_")){
+        
 
-    const id = data.replace("download_","");
-            
+    
 
         // ---------- ADMIN ----------
         if (isAdmin(userId)) {

@@ -563,7 +563,16 @@ bot.on("callback_query", async (query) => {
     const data = query.data;
 
     try {
-        
+
+            const result = await pool.query(
+                
+        } catch(err){
+
+        console.log(err);
+
+    }
+
+});
 
     
 
@@ -1415,7 +1424,7 @@ if(data.startsWith("open_")){
 
     }
 
-    const result = await pool.query(
+
 
         `
         SELECT *

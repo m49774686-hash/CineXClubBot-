@@ -225,6 +225,23 @@ first_name TEXT,
 joined_at TIMESTAMP DEFAULT NOW()
 
 );
+CREATE TABLE IF NOT EXISTS settings(
+
+id SERIAL PRIMARY KEY,
+
+setting_key TEXT UNIQUE NOT NULL,
+
+setting_value TEXT
+
+);
+
+INSERT INTO settings(setting_key,setting_value)
+VALUES
+('auto_delete','30'),
+('welcome_image',''),
+('welcome_message','')
+ON CONFLICT(setting_key)
+DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS requests(
 

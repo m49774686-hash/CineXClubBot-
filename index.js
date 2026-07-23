@@ -261,7 +261,13 @@ setting_value TEXT
 );
 
 `);
+await pool.query(`
 
+ALTER TABLE settings
+
+ADD COLUMN IF NOT EXISTS setting_value TEXT;
+
+`);
 
 
 

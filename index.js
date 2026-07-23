@@ -564,50 +564,42 @@ bot.on("callback_query", async (query) => {
 
     try {
 
-            const result = await pool.query(
-                
-        } catch(err){
+        // ======================
+        // ADMIN CALLBACKS
+        // ======================
 
-        console.log(err);
-
-    }
-
-
-    
-
-        // ---------- ADMIN ----------
         if (isAdmin(userId)) {
 
-            switch (data) {
+            switch(data) {
 
                 case "admin_upload":
 
-                    uploadState.set(chatId, {
-                        step: "type"
+                    uploadState.set(chatId,{
+                        step:"type"
                     });
 
                     await bot.sendMessage(
                         chatId,
                         "Select Content Type",
                         {
-                            reply_markup: {
-                                inline_keyboard: [
+                            reply_markup:{
+                                inline_keyboard:[
                                     [
                                         {
-                                            text: "🎬 Movie",
-                                            callback_data: "type_movie"
+                                            text:"🎬 Movie",
+                                            callback_data:"type_movie"
                                         }
                                     ],
                                     [
                                         {
-                                            text: "📺 Series",
-                                            callback_data: "type_series"
+                                            text:"📺 Series",
+                                            callback_data:"type_series"
                                         }
                                     ],
                                     [
                                         {
-                                            text: "🍥 Anime",
-                                            callback_data: "type_anime"
+                                            text:"🍥 Anime",
+                                            callback_data:"type_anime"
                                         }
                                     ]
                                 ]
@@ -615,142 +607,44 @@ bot.on("callback_query", async (query) => {
                         }
                     );
 
-                    break;
-
-                case "type_movie":
-
-                    uploadState.set(chatId, {
-                        step: "caption",
-                        type: "Movie"
-                    });
-
-                    await bot.sendMessage(
-                        chatId,
-                        "Send Movie Caption"
-                    );
-
-                    break;
-
-                case "type_series":
-
-                    uploadState.set(chatId, {
-                        step: "caption",
-                        type: "Series"
-                    });
-
-                    await bot.sendMessage(
-                        chatId,
-                        "Send Series Caption"
-                    );
-
-                    break;
-
-                case "type_anime":
-
-                    uploadState.set(chatId, {
-                        step: "caption",
-                        type: "Anime"
-                    });
-
-                    await bot.sendMessage(
-                        chatId,
-                        "Send Anime Caption"
-                    );
-
-                    break;
-
-                case "quality_480":
-
-                case "quality_720":
-
-                case "quality_1080":
-
-                    if (!uploadState.has(chatId))
-                        break;
-
-                    const upload = uploadState.get(chatId);
-
-                    upload.quality = data.replace("quality_", "");
-
-                    upload.step = "file";
-
-                    uploadState.set(chatId, upload);
-
-                    await bot.sendMessage(
-                        chatId,
-                        "📁 Now send Movie / MKV File"
-                    );
-
-                    break;
+                break;
 
             }
 
         }
 
-        // ---------- USER ----------
 
-        switch (data) {
+        // ======================
+        // USER CALLBACKS
+        // ======================
 
-            case "search":
+        if(data==="search"){
 
-                searchState.set(chatId, true);
+            searchState.set(chatId,true);
 
-                await bot.sendMessage(
-                    chatId,
-                    "🔍 Send Movie / Series / Anime Name"
-                );
-
-                break;
-
-            case "movies":
-
-                await bot.sendMessage(
-                    chatId,
-                    "🎬 Send Movie Name"
-                );
-
-                searchState.set(chatId, true);
-
-                break;
-
-            case "series":
-
-                await bot.sendMessage(
-                    chatId,
-                    "📺 Send Series Name"
-                );
-
-                searchState.set(chatId, true);
-
-                break;
-
-            case "anime":
-
-                await bot.sendMessage(
-                    chatId,
-                    "🍥 Send Anime Name"
-                );
-
-                searchState.set(chatId, true);
-
-                break;
+            await bot.sendMessage(
+                chatId,
+                "🔍 Send Movie Name"
+            );
 
         }
 
+
         await bot.answerCallbackQuery(query.id);
 
-    } catch (err) {
 
-        console.log(err);
+    } catch(err){
 
-        bot.answerCallbackQuery(query.id);
+        console.log("Callback Error:",err);
+
+        await bot.answerCallbackQuery(query.id);
 
     }
 
 });
 
-console.log("✅ PART 4 LOADED");
 
+console.log("✅ PART 4 LOADED");
 // ===================================================
 // PART 5 CONTINUES...
 // ===================================================

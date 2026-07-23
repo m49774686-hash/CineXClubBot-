@@ -244,7 +244,15 @@ created_at TIMESTAMP DEFAULT NOW()
 );
 
 `);
+await pool.query(`
+DROP TABLE IF EXISTS settings;
 
+CREATE TABLE settings (
+    id SERIAL PRIMARY KEY,
+    setting_key TEXT UNIQUE NOT NULL,
+    setting_value TEXT
+);
+`);
 
 
 

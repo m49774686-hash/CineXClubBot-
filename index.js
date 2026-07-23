@@ -7397,3 +7397,5 @@ function safeLog(text){
 
 
 console.log("✅ PART 13A LOADED");
+bot.startPolling();
+console.log("CineXClub Bot Started");

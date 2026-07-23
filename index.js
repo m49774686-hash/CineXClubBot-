@@ -2,20 +2,20 @@
 // CineXClub Bot
 // FINAL CLEAN INDEX.JS
 // PART 1/13
-// Setup + Environment + Bot + Database + Health Check
+// Setup + Environment + Bot + Database
 // =====================================================
 
 
 require("dotenv").config();
 
-const TelegramBot = require("node-telegram-api");
+const TelegramBot = require("node-telegram-bot-api");
 const express = require("express");
 const { Pool } = require("pg");
 
 
-// =====================================================
-// ENV
-// =====================================================
+// ===============================
+// ENV CONFIG
+// ===============================
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
@@ -35,34 +35,34 @@ if(!BOT_TOKEN){
 
 
 
-// =====================================================
+// ===============================
 // BOT INITIALIZE
-// =====================================================
+// ===============================
 
 
 const bot = new TelegramBot(
+
     BOT_TOKEN,
+
     {
         polling:{
             interval:300,
             autoStart:true
         }
     }
+
 );
 
 
 
-console.log(
-    "🎬 CineXClub Bot Started"
-);
+console.log("🎬 CineXClub Bot Starting...");
 
 
 
 
-
-// =====================================================
-// POSTGRESQL DATABASE
-// =====================================================
+// ===============================
+// DATABASE
+// ===============================
 
 
 const pool = new Pool({
@@ -80,15 +80,15 @@ const pool = new Pool({
 
 
 pool.connect()
+
 .then(client=>{
 
-    console.log(
-        "✅ PostgreSQL Connected"
-    );
+    console.log("✅ PostgreSQL Connected");
 
     client.release();
 
 })
+
 .catch(err=>{
 
     console.log(
@@ -103,13 +103,12 @@ pool.connect()
 
 
 
-// =====================================================
-// EXPRESS HEALTH CHECK
-// =====================================================
+// ===============================
+// HEALTH SERVER (RENDER)
+// ===============================
 
 
 const app = express();
-
 
 
 app.get("/",(req,res)=>{
@@ -122,9 +121,7 @@ app.get("/",(req,res)=>{
 
 
 
-
 app.get("/health",(req,res)=>{
-
 
     res.json({
 
@@ -136,10 +133,7 @@ app.get("/health",(req,res)=>{
 
     });
 
-
 });
-
-
 
 
 
@@ -150,11 +144,10 @@ process.env.PORT || 3000;
 
 app.listen(PORT,()=>{
 
-
-console.log(
-`Health Server Running : ${PORT}`
-);
-
+    console.log(
+        "Health Server Running:",
+        PORT
+    );
 
 });
 
@@ -164,20 +157,20 @@ console.log(
 
 
 
-// =====================================================
-// GLOBAL STORAGE
-// =====================================================
+// ===============================
+// GLOBAL STATES
+// ===============================
 
 
 const userStates = new Map();
 
 const adminStates = new Map();
 
-const deleteTimers = new Map();
-
 const searchState = new Map();
 
 const uploadState = new Map();
+
+const deleteTimers = new Map();
 
 const welcomeImageState = new Map();
 
@@ -186,95 +179,9 @@ const welcomeImageState = new Map();
 
 
 
-
-
-// =====================================================
-// ERROR HANDLING
-// =====================================================
-
-
-bot.on(
-"polling_error",
-(err)=>{
-
-
-console.log(
-"Polling Error:",
-err.message
-);
-
-
-});
-
-
-
-
-process.on(
-"unhandledRejection",
-(err)=>{
-
-
-console.log(
-"Unhandled Error:",
-err
-);
-
-
-});
-
-
-
-
-process.on(
-"uncaughtException",
-(err)=>{
-
-
-console.log(
-"Exception:",
-err.message
-);
-
-
-});
-
-
-
-
-
-
-
-// =====================================================
-// BASIC TEST
-// =====================================================
-
-
-bot.onText(
-/\/ping/,
-(msg)=>{
-
-
-bot.sendMessage(
-
-msg.chat.id,
-
-"🏓 Pong"
-
-);
-
-
-});
-
-
-
-
-
-
-
-// =====================================================
-// EXPORT FOR INTERNAL PARTS
-// (NO RE-DECLARE IN NEXT PARTS)
-// =====================================================
+// ===============================
+// EXPORT GLOBAL OBJECT
+// ===============================
 
 
 global.CineX = {
@@ -289,19 +196,70 @@ global.CineX = {
 
     STORAGE_CHANNEL,
 
+
     userStates,
 
     adminStates,
-
-    deleteTimers,
 
     searchState,
 
     uploadState,
 
+    deleteTimers,
+
     welcomeImageState
 
+
 };
+
+
+
+
+
+
+// ===============================
+// BASIC ERROR HANDLING
+// ===============================
+
+
+bot.on(
+"polling_error",
+(err)=>{
+
+    console.log(
+        "Polling Error:",
+        err.message
+    );
+
+});
+
+
+
+
+process.on(
+"unhandledRejection",
+(err)=>{
+
+    console.log(
+        "Unhandled Error:",
+        err
+    );
+
+});
+
+
+
+process.on(
+"uncaughtException",
+(err)=>{
+
+    console.log(
+        "Exception:",
+        err.message
+    );
+
+});
+
 
 
 
@@ -326,19 +284,15 @@ const {
 
 
 
-// =====================================================
-// DATABASE TABLE CREATION
-// =====================================================
+// ===============================
+// DATABASE INITIALIZATION
+// ===============================
 
 
 async function initDatabase(){
 
-
 try{
 
-
-
-// CONTENTS TABLE
 
 await pool.query(`
 
@@ -384,8 +338,6 @@ created_at TIMESTAMP DEFAULT NOW()
 
 
 
-// USERS TABLE
-
 await pool.query(`
 
 CREATE TABLE IF NOT EXISTS users (
@@ -410,8 +362,6 @@ joined_at TIMESTAMP DEFAULT NOW()
 
 
 
-
-// REQUESTS TABLE
 
 await pool.query(`
 
@@ -439,8 +389,6 @@ created_at TIMESTAMP DEFAULT NOW()
 
 
 
-// SETTINGS TABLE
-
 await pool.query(`
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -459,7 +407,6 @@ value TEXT
 
 
 
-
 console.log(
 "✅ Database Tables Ready"
 );
@@ -470,15 +417,12 @@ console.log(
 
 catch(err){
 
-
 console.log(
-"Database Init Error:",
+"Database Setup Error:",
 err.message
 );
 
-
 }
-
 
 
 }
@@ -493,10 +437,11 @@ initDatabase();
 
 
 
-// =====================================================
-// USER FUNCTIONS
-// =====================================================
 
+
+// ===============================
+// USER FUNCTIONS
+// ===============================
 
 
 async function saveUser(user){
@@ -515,8 +460,7 @@ username,
 first_name
 )
 
-VALUES
-($1,$2,$3)
+VALUES($1,$2,$3)
 
 ON CONFLICT(user_id)
 
@@ -563,6 +507,8 @@ err.message
 
 
 
+
+
 async function getUserCount(){
 
 
@@ -578,9 +524,7 @@ FROM users
 
 
 
-return Number(
-result.rows[0].count
-);
+return result.rows[0].count;
 
 
 }
@@ -593,10 +537,9 @@ result.rows[0].count
 
 
 
-// =====================================================
+// ===============================
 // CONTENT FUNCTIONS
-// =====================================================
-
+// ===============================
 
 
 async function saveContent(data){
@@ -612,18 +555,31 @@ await pool.query(`
 INSERT INTO contents
 
 (
+
 content_id,
+
 title,
+
 type,
+
 collection,
+
 season,
+
 episode,
+
 year,
+
 quality,
+
 audio,
+
 language,
+
 size,
+
 thumbnail,
+
 file_id
 
 )
@@ -641,6 +597,7 @@ DO NOTHING
 RETURNING *
 
 `,
+
 [
 
 data.content_id,
@@ -695,8 +652,8 @@ return null;
 }
 
 
-
 }
+
 
 
 
@@ -737,19 +694,12 @@ return result.rows[0];
 catch(err){
 
 
-console.log(
-"Get Content Error:",
-err.message
-);
-
-
 return null;
 
 
 }
 
 
-
 }
 
 
@@ -760,96 +710,12 @@ return null;
 
 
 
-// =====================================================
-// DOWNLOAD COUNT
-// =====================================================
-
-
-
-async function increaseDownload(
-
-contentId,
-
-userId
-
-){
-
-
-try{
-
-
-await pool.query(`
-
-UPDATE contents
-
-SET downloads = downloads + 1
-
-WHERE content_id=$1
-
-`,
-[
-contentId
-]
-
-);
-
-
-
-
-await pool.query(`
-
-UPDATE users
-
-SET downloads = downloads + 1
-
-WHERE user_id=$1
-
-`,
-[
-userId
-]
-
-);
-
-
-
-}
-
-catch(err){
-
-
-console.log(
-"Download Count Error:",
-err.message
-);
-
-
-}
-
-
-}
-
-
-
-
-
-
-
-
-
-// =====================================================
+// ===============================
 // SETTINGS FUNCTIONS
-// =====================================================
+// ===============================
 
 
-
-async function setSetting(
-
-key,
-
-value
-
-){
+async function setSetting(key,value){
 
 
 
@@ -860,7 +726,6 @@ INSERT INTO settings
 (key,value)
 
 VALUES($1,$2)
-
 
 ON CONFLICT(key)
 
@@ -887,7 +752,6 @@ value
 
 
 async function getSetting(key){
-
 
 
 const result =
@@ -953,10 +817,67 @@ key
 
 
 
-// =====================================================
-// REQUEST FUNCTIONS
-// =====================================================
 
+// ===============================
+// DOWNLOAD COUNT
+// ===============================
+
+
+async function increaseDownload(
+
+contentId,
+
+userId
+
+){
+
+
+await pool.query(`
+
+UPDATE contents
+
+SET downloads=downloads+1
+
+WHERE content_id=$1
+
+`,
+[
+contentId
+]
+
+);
+
+
+
+await pool.query(`
+
+UPDATE users
+
+SET downloads=downloads+1
+
+WHERE user_id=$1
+
+`,
+[
+userId
+]
+
+);
+
+
+}
+
+
+
+
+
+
+
+
+
+// ===============================
+// REQUEST FUNCTIONS
+// ===============================
 
 
 async function saveRequest(
@@ -974,15 +895,9 @@ await pool.query(`
 
 INSERT INTO requests
 
-(
-user_id,
-username,
-request
-)
+(user_id,username,request)
 
-VALUES
-
-($1,$2,$3)
+VALUES($1,$2,$3)
 
 `,
 [
@@ -995,38 +910,6 @@ request
 
 
 }
-
-
-
-
-
-
-async function getPendingRequests(){
-
-
-const result =
-
-await pool.query(`
-
-SELECT *
-
-FROM requests
-
-WHERE status='pending'
-
-ORDER BY id DESC
-
-`);
-
-
-
-return result.rows;
-
-
-}
-
-
-
 
 
 
@@ -1064,9 +947,9 @@ id
 
 
 
-// =====================================================
-// MAKE FUNCTIONS GLOBAL
-// =====================================================
+// ===============================
+// GLOBAL EXPORT
+// ===============================
 
 
 Object.assign(
@@ -1083,17 +966,15 @@ saveContent,
 
 getContent,
 
-increaseDownload,
-
 setSetting,
 
 getSetting,
 
 removeSetting,
 
-saveRequest,
+increaseDownload,
 
-getPendingRequests,
+saveRequest,
 
 updateRequestStatus
 
@@ -1104,7 +985,6 @@ updateRequestStatus
 
 
 
-
 // ===============================
 // END PART 2/13
 // ===============================
@@ -1112,7 +992,7 @@ updateRequestStatus
 // CineXClub Bot
 // FINAL CLEAN INDEX.JS
 // PART 3/13
-// User System + Force Join + /start Handler
+// User System + Force Join + /start Deep Link
 // =====================================================
 
 
@@ -1138,9 +1018,11 @@ const {
 
 
 
-// =====================================================
+
+
+// ===============================
 // FORCE JOIN CHECK
-// =====================================================
+// ===============================
 
 
 async function checkForceJoin(userId){
@@ -1152,6 +1034,7 @@ try{
 if(!FORCE_CHANNEL)
 
 return true;
+
 
 
 
@@ -1169,7 +1052,8 @@ userId
 
 
 
-if(
+
+return (
 
 member.status === "member" ||
 
@@ -1177,17 +1061,7 @@ member.status === "administrator" ||
 
 member.status === "creator"
 
-)
-
-{
-
-return true;
-
-}
-
-
-
-return false;
+);
 
 
 
@@ -1223,20 +1097,36 @@ return false;
 
 
 
-// =====================================================
+// ===============================
 // FORCE JOIN MESSAGE
-// =====================================================
+// ===============================
 
 
-async function sendForceJoin(chatId){
+function sendForceJoin(chatId){
 
 
 
-const buttons = {
+bot.sendMessage(
 
+chatId,
+
+`
+
+🔒 Access Locked
+
+
+Please join our official channel first.
+
+
+After joining press ✅ Verify.
+
+`,
+
+{
+
+reply_markup:{
 
 inline_keyboard:[
-
 
 [
 
@@ -1252,58 +1142,28 @@ url:
 
 ],
 
-
 [
 
 {
 
-text:"✅ Joined",
+text:"✅ Verify",
 
-callback_data:"check_join"
+callback_data:"verify_join"
 
 }
 
 ]
 
-
 ]
 
-
-};
-
-
-
-
-
-bot.sendMessage(
-
-chatId,
-
-`
-
-🔒 Join Required
-
-
-Please join our official channel first.
-
-
-After joining click ✅ Joined.
-
-`
-
-,
-
-{
-
-parse_mode:"Markdown",
-
-reply_markup:buttons
+}
 
 }
 
 );
 
 
+
 }
 
 
@@ -1314,9 +1174,9 @@ reply_markup:buttons
 
 
 
-// =====================================================
-// AUTO SAVE USERS
-// =====================================================
+// ===============================
+// SAVE USERS AUTOMATICALLY
+// ===============================
 
 
 bot.on(
@@ -1326,31 +1186,12 @@ bot.on(
 async(msg)=>{
 
 
-if(!msg.from)
-
-return;
-
-
-
-try{
+if(msg.from){
 
 
 await saveUser(
+
 msg.from
-);
-
-
-
-}
-
-catch(err){
-
-
-console.log(
-
-"User Save Error",
-
-err.message
 
 );
 
@@ -1368,9 +1209,9 @@ err.message
 
 
 
-// =====================================================
-// /START HANDLER
-// =====================================================
+// ===============================
+// START COMMAND
+// ===============================
 
 
 bot.onText(
@@ -1403,7 +1244,6 @@ await saveUser(user);
 
 
 
-
 const joined =
 
 await checkForceJoin(
@@ -1420,10 +1260,15 @@ user.id
 if(!joined){
 
 
-return sendForceJoin(chatId);
+return sendForceJoin(
+
+chatId
+
+);
 
 
 }
+
 
 
 
@@ -1441,8 +1286,8 @@ match[1];
 
 
 
-
 // DEEP LINK
+
 
 
 if(contentId){
@@ -1461,11 +1306,12 @@ contentId
 
 
 
+
 if(content){
 
 
 
-return sendContentDetails(
+return global.CineX.sendContentDetails(
 
 chatId,
 
@@ -1474,7 +1320,11 @@ content
 );
 
 
+
 }
+
+
+
 
 
 
@@ -1484,10 +1334,10 @@ chatId,
 
 `
 
-❌ Video not found in our database
+❌ Content not found
 
 
-🔎 Try searching again.
+Try another search.
 
 `
 
@@ -1504,11 +1354,10 @@ chatId,
 
 
 
+// WELCOME SYSTEM
 
-// WELCOME IMAGE FROM DATABASE
 
-
-const welcomeImage =
+const image =
 
 await getSetting(
 
@@ -1521,11 +1370,12 @@ await getSetting(
 
 
 
+
 const text =
 
 `
 
-🎬 *Welcome to CineXClub Bot*
+🎬 *Welcome To CineXClub*
 
 
 👋 Hello ${user.first_name || "User"}
@@ -1534,7 +1384,7 @@ const text =
 🔥 Movies | Series | Anime
 
 
-Search your favourite content.
+Search and download your favourite content.
 
 `;
 
@@ -1591,7 +1441,6 @@ callback_data:"help"
 
 ]
 
-
 };
 
 
@@ -1599,7 +1448,9 @@ callback_data:"help"
 
 
 
-if(welcomeImage){
+
+
+if(image){
 
 
 
@@ -1607,7 +1458,7 @@ return bot.sendPhoto(
 
 chatId,
 
-welcomeImage,
+image,
 
 {
 
@@ -1620,6 +1471,7 @@ reply_markup:keyboard
 }
 
 );
+
 
 
 }
@@ -1648,7 +1500,6 @@ reply_markup:keyboard
 
 
 
-
 });
 
 
@@ -1659,9 +1510,9 @@ reply_markup:keyboard
 
 
 
-// =====================================================
-// CHECK JOIN BUTTON
-// =====================================================
+// ===============================
+// VERIFY JOIN BUTTON
+// ===============================
 
 
 bot.on(
@@ -1671,13 +1522,15 @@ bot.on(
 async(query)=>{
 
 
+
 if(
 
-query.data !== "check_join"
+query.data !== "verify_join"
 
 )
 
 return;
+
 
 
 
@@ -1696,6 +1549,8 @@ query.from.id
 
 
 
+
+
 if(joined){
 
 
@@ -1706,7 +1561,7 @@ query.id,
 
 {
 
-text:"✅ Verified"
+text:"Verified ✅"
 
 }
 
@@ -1735,7 +1590,7 @@ query.id,
 
 {
 
-text:"❌ Join channel first"
+text:"Join channel first ❌"
 
 }
 
@@ -1755,16 +1610,20 @@ text:"❌ Join channel first"
 
 
 
-// =====================================================
+
+// ===============================
 // EXPORT
-// =====================================================
+// ===============================
 
 
 global.CineX.checkForceJoin =
+
 checkForceJoin;
 
 
+
 global.CineX.sendForceJoin =
+
 sendForceJoin;
 
 
@@ -1776,9 +1635,8 @@ sendForceJoin;
 // CineXClub Bot
 // FINAL CLEAN INDEX.JS
 // PART 4/13
-// Movie / Series / Anime Details
-// File Send System
-// Download Button
+// Content Details + File Sending System
+// Movie / Series / Anime
 // =====================================================
 
 
@@ -1804,9 +1662,11 @@ const {
 
 
 
-// =====================================================
-// SEND CONTENT DETAILS
-// =====================================================
+
+
+// ===============================
+// CONTENT DETAILS PAGE
+// ===============================
 
 
 async function sendContentDetails(
@@ -1819,7 +1679,7 @@ content
 
 
 
-let text =
+let details =
 
 `
 
@@ -1827,6 +1687,7 @@ let text =
 
 
 📌 Type:
+
 ${content.type}
 
 `;
@@ -1839,23 +1700,27 @@ ${content.type}
 if(content.type === "Movie"){
 
 
-text +=
+details +=
 
 `
 
 📅 Year:
+
 ${content.year || "N/A"}
 
 
 🎞 Quality:
+
 ${content.quality || "N/A"}
 
 
 🔊 Audio:
+
 ${content.audio || "N/A"}
 
 
 📦 Size:
+
 ${content.size || "N/A"}
 
 `;
@@ -1863,6 +1728,7 @@ ${content.size || "N/A"}
 
 
 }
+
 
 
 
@@ -1878,24 +1744,27 @@ content.type === "Anime"
 ){
 
 
-
-text +=
+details +=
 
 `
 
 📚 Collection:
+
 ${content.collection || "N/A"}
 
 
 📺 Season:
+
 ${content.season || "N/A"}
 
 
 🎬 Episode:
+
 ${content.episode || "N/A"}
 
 
 🎞 Quality:
+
 ${content.quality || "N/A"}
 
 `;
@@ -1930,11 +1799,10 @@ callback_data:
 
 ]
 
-
-
 ]
 
 };
+
 
 
 
@@ -1953,7 +1821,7 @@ content.thumbnail,
 
 {
 
-caption:text,
+caption:details,
 
 parse_mode:"Markdown",
 
@@ -1977,7 +1845,7 @@ bot.sendMessage(
 
 chatId,
 
-text,
+details,
 
 {
 
@@ -2001,9 +1869,9 @@ reply_markup:keyboard
 
 
 
-// =====================================================
-// SEND FILE
-// =====================================================
+// ===============================
+// SEND VIDEO FILE
+// ===============================
 
 
 async function sendFile(
@@ -2040,18 +1908,22 @@ caption:
 
 
 📌 Type:
+
 ${content.type}
 
 
 🎞 Quality:
+
 ${content.quality || "N/A"}
 
 
 🔊 Audio:
+
 ${content.audio || "N/A"}
 
 
 📦 Size:
+
 ${content.size || "N/A"}
 
 
@@ -2068,8 +1940,6 @@ ${content.size || "N/A"}
 
 
 
-// DOWNLOAD COUNT
-
 await increaseDownload(
 
 content.content_id,
@@ -2084,7 +1954,8 @@ userId
 
 
 
-// AUTO DELETE 10 MINUTES
+
+// AUTO DELETE DEFAULT 10 MINUTES
 
 
 const timer =
@@ -2106,6 +1977,15 @@ sent.message_id
 );
 
 
+
+deleteTimers.delete(
+
+sent.message_id
+
+);
+
+
+
 }
 
 catch(err){
@@ -2123,12 +2003,12 @@ err.message
 }
 
 
-
 },
 
 10 * 60 * 1000
 
 );
+
 
 
 
@@ -2145,6 +2025,8 @@ timer
 
 
 
+
+
 }
 
 catch(err){
@@ -2152,7 +2034,7 @@ catch(err){
 
 console.log(
 
-"Send File Error:",
+"File Send Error:",
 
 err.message
 
@@ -2173,6 +2055,7 @@ chatId,
 }
 
 
+
 }
 
 
@@ -2183,9 +2066,9 @@ chatId,
 
 
 
-// =====================================================
-// DOWNLOAD BUTTON HANDLER
-// =====================================================
+// ===============================
+// DOWNLOAD BUTTON
+// ===============================
 
 
 bot.on(
@@ -2193,6 +2076,7 @@ bot.on(
 "callback_query",
 
 async(query)=>{
+
 
 
 if(
@@ -2213,7 +2097,7 @@ return;
 
 
 
-const contentId =
+const id =
 
 query.data.replace(
 
@@ -2228,11 +2112,12 @@ query.data.replace(
 
 
 
+
 const content =
 
 await getContent(
 
-contentId
+id
 
 );
 
@@ -2250,14 +2135,17 @@ query.id,
 
 {
 
-text:"❌ File not found"
+text:"File not found ❌"
 
 }
 
 );
 
 
+
 }
+
+
 
 
 
@@ -2297,16 +2185,19 @@ content
 
 
 
-// =====================================================
+// ===============================
 // EXPORT
-// =====================================================
+// ===============================
 
 
 global.CineX.sendContentDetails =
+
 sendContentDetails;
 
 
+
 global.CineX.sendFile =
+
 sendFile;
 
 
@@ -2318,7 +2209,7 @@ sendFile;
 // CineXClub Bot
 // FINAL CLEAN INDEX.JS
 // PART 5/13
-// Search System + PostgreSQL Fast Search
+// Search System + PostgreSQL Search
 // =====================================================
 
 
@@ -2344,9 +2235,10 @@ const {
 
 
 
-// =====================================================
+
+// ===============================
 // SEARCH BUTTON
-// =====================================================
+// ===============================
 
 
 bot.on(
@@ -2363,6 +2255,7 @@ query.data !== "search"
 )
 
 return;
+
 
 
 
@@ -2414,9 +2307,9 @@ Naruto
 
 
 
-// =====================================================
-// SEARCH MESSAGE HANDLER
-// =====================================================
+// ===============================
+// SEARCH MESSAGE
+// ===============================
 
 
 bot.on(
@@ -2435,10 +2328,10 @@ return;
 
 
 
+
 const userId =
 
 msg.from.id;
-
 
 
 
@@ -2458,20 +2351,22 @@ return;
 
 
 
-const searchText =
-
-msg.text.trim();
-
-
-
-
-
 
 searchState.delete(
 
 userId
 
 );
+
+
+
+
+
+
+
+const keyword =
+
+msg.text.trim();
 
 
 
@@ -2507,7 +2402,7 @@ LIMIT 10
 
 [
 
-`%${searchText}%`
+`%${keyword}%`
 
 ]
 
@@ -2519,14 +2414,12 @@ LIMIT 10
 
 
 
-
 if(
 
 result.rows.length === 0
 
-)
+){
 
-{
 
 
 return bot.sendMessage(
@@ -2538,11 +2431,12 @@ msg.chat.id,
 ❌ No results found
 
 
-Use /request to request this content.
+Use /request to request content.
 
 `
 
 );
+
 
 
 }
@@ -2566,7 +2460,8 @@ inline_keyboard:[]
 
 
 
-result.rows.forEach(content=>{
+
+result.rows.forEach(item=>{
 
 
 buttons.inline_keyboard.push(
@@ -2577,17 +2472,18 @@ buttons.inline_keyboard.push(
 
 text:
 
-`🎬 ${content.title}`,
+`🎬 ${item.title}`,
 
 callback_data:
 
-`detail_${content.content_id}`
+`detail_${item.content_id}`
 
 }
 
 ]
 
 );
+
 
 
 });
@@ -2606,15 +2502,14 @@ msg.chat.id,
 
 🔎 Search Results:
 
-*${searchText}*
+
+${keyword}
 
 `
 
 ,
 
 {
-
-parse_mode:"Markdown",
 
 reply_markup:buttons
 
@@ -2627,7 +2522,6 @@ reply_markup:buttons
 }
 
 catch(err){
-
 
 
 console.log(
@@ -2653,6 +2547,7 @@ msg.chat.id,
 }
 
 
+
 });
 
 
@@ -2663,9 +2558,9 @@ msg.chat.id,
 
 
 
-// =====================================================
-// SEARCH RESULT DETAILS BUTTON
-// =====================================================
+// ===============================
+// OPEN DETAILS FROM SEARCH
+// ===============================
 
 
 bot.on(
@@ -2673,6 +2568,7 @@ bot.on(
 "callback_query",
 
 async(query)=>{
+
 
 
 if(
@@ -2708,6 +2604,7 @@ query.data.replace(
 
 
 
+
 const content =
 
 await global.CineX.getContent(
@@ -2721,9 +2618,11 @@ id
 
 
 
+
 if(!content)
 
 return;
+
 
 
 
@@ -2750,9 +2649,9 @@ content
 
 
 
-// =====================================================
+// ===============================
 // DIRECT SEARCH FUNCTION
-// =====================================================
+// ===============================
 
 
 async function searchContent(text){
@@ -2795,6 +2694,7 @@ return result.rows;
 
 
 }
+
 
 
 
@@ -2848,15 +2748,37 @@ const {
 
 
 
-// =====================================================
+// ===============================
+// ADMIN CHECK
+// ===============================
+
+
+function isAdmin(id){
+
+return id.toString()
+===
+ADMIN_ID.toString();
+
+}
+
+
+
+
+
+
+
+
+// ===============================
 // CAPTION PARSER
-// =====================================================
+// ===============================
 
 
 function parseCaption(caption){
 
 
+
 const data = {};
+
 
 
 
@@ -2865,13 +2787,13 @@ caption
 .forEach(line=>{
 
 
-const split =
+const parts =
 
 line.split(":");
 
 
 
-if(split.length < 2)
+if(parts.length < 2)
 
 return;
 
@@ -2880,7 +2802,7 @@ return;
 
 const key =
 
-split.shift()
+parts.shift()
 
 .trim()
 
@@ -2889,10 +2811,12 @@ split.shift()
 
 
 
+
 const value =
 
-split.join(":")
+parts.join(":")
 .trim();
+
 
 
 
@@ -2916,9 +2840,9 @@ content_id:
 
 data.id ||
 
-data.movieid ||
+data.content_id ||
 
-data.contentid,
+data.movieid,
 
 
 
@@ -3004,9 +2928,9 @@ data.size || null
 
 
 
-// =====================================================
-// STORAGE CHANNEL AUTO SAVE
-// =====================================================
+// ===============================
+// STORAGE CHANNEL UPLOAD
+// ===============================
 
 
 bot.on(
@@ -3038,6 +2962,7 @@ return;
 
 
 
+
 if(!post.video)
 
 return;
@@ -3047,18 +2972,15 @@ return;
 
 
 
-const caption =
-
-post.caption || "";
-
-
-
-
-
 
 const data =
 
-parseCaption(caption);
+parseCaption(
+
+post.caption || ""
+
+);
+
 
 
 
@@ -3074,9 +2996,6 @@ return;
 
 
 
-
-
-// Duplicate Protection
 
 
 const exists =
@@ -3095,10 +3014,9 @@ data.content_id
 if(exists){
 
 
-
 console.log(
 
-"Duplicate Content:",
+"Duplicate ID:",
 
 data.content_id
 
@@ -3114,7 +3032,7 @@ return;
 
 
 
-const saved =
+
 
 await saveContent({
 
@@ -3124,7 +3042,6 @@ await saveContent({
 file_id:
 
 post.video.file_id,
-
 
 
 thumbnail:
@@ -3146,17 +3063,11 @@ null
 
 
 
-
-
-if(saved){
-
-
-
 console.log(
 
 "Uploaded:",
 
-saved.title
+data.title
 
 );
 
@@ -3164,11 +3075,8 @@ saved.title
 
 }
 
-
-
-}
-
 catch(err){
+
 
 
 console.log(
@@ -3178,6 +3086,7 @@ console.log(
 err.message
 
 );
+
 
 
 }
@@ -3194,9 +3103,9 @@ err.message
 
 
 
-// =====================================================
-// ADMIN UPLOAD COMMAND
-// =====================================================
+// ===============================
+// ADMIN UPLOAD MODE
+// ===============================
 
 
 bot.onText(
@@ -3209,15 +3118,12 @@ async(msg)=>{
 
 if(
 
-msg.from.id.toString()
-
-!==
-
-ADMIN_ID.toString()
+!isAdmin(msg.from.id)
 
 )
 
 return;
+
 
 
 
@@ -3239,7 +3145,6 @@ true
 
 
 
-
 bot.sendMessage(
 
 msg.chat.id,
@@ -3249,10 +3154,10 @@ msg.chat.id,
 📤 Send Video With Caption
 
 
-Format:
+Example:
 
 
-ID: movie001
+ID: iron001
 
 Type: Movie
 
@@ -3265,19 +3170,6 @@ Quality: 1080p
 Audio: English
 
 Size: 2GB
-
-
-
-Series / Anime:
-
-
-Type: Series
-
-Collection: Stranger Things
-
-Season: 1
-
-Episode: 1
 
 
 `
@@ -3296,9 +3188,9 @@ Episode: 1
 
 
 
-// =====================================================
+// ===============================
 // ADMIN VIDEO SAVE
-// =====================================================
+// ===============================
 
 
 bot.on(
@@ -3326,6 +3218,8 @@ return;
 
 
 
+
+
 if(
 
 !msg.video
@@ -3342,16 +3236,11 @@ return;
 
 if(
 
-msg.from.id.toString()
-
-!==
-
-ADMIN_ID.toString()
+!isAdmin(msg.from.id)
 
 )
 
 return;
-
 
 
 
@@ -3376,18 +3265,17 @@ msg.caption || ""
 if(!data.content_id){
 
 
-
 return bot.sendMessage(
 
 msg.chat.id,
 
-"❌ ID missing"
+"❌ ID Missing"
 
 );
 
 
-
 }
+
 
 
 
@@ -3431,18 +3319,14 @@ msg.chat.id,
 
 
 
-
 await saveContent({
 
-
 ...data,
-
 
 
 file_id:
 
 msg.video.file_id,
-
 
 
 thumbnail:
@@ -3477,6 +3361,7 @@ msg.chat.id
 
 
 
+
 bot.sendMessage(
 
 msg.chat.id,
@@ -3486,7 +3371,7 @@ msg.chat.id,
 ✅ Upload Completed
 
 
-${data.title}
+🎬 ${data.title}
 
 `
 
@@ -3504,14 +3389,20 @@ ${data.title}
 
 
 
-// =====================================================
+// ===============================
 // EXPORT
-// =====================================================
+// ===============================
 
 
 global.CineX.parseCaption =
 
 parseCaption;
+
+
+
+global.CineX.isAdmin =
+
+isAdmin;
 
 
 
@@ -3544,21 +3435,15 @@ const {
 
 
 
-const {
-
-    sendFile
-
-} = global.CineX;
 
 
 
 
 
 
-
-// =====================================================
+// ===============================
 // GET EPISODES
-// =====================================================
+// ===============================
 
 
 async function getEpisodes(
@@ -3568,7 +3453,6 @@ collection,
 season
 
 ){
-
 
 
 try{
@@ -3603,6 +3487,7 @@ season
 
 
 
+
 return result.rows;
 
 
@@ -3614,7 +3499,7 @@ catch(err){
 
 console.log(
 
-"Episode Error:",
+"Episode Fetch Error:",
 
 err.message
 
@@ -3640,9 +3525,9 @@ return [];
 
 
 
-// =====================================================
+// ===============================
 // OPEN COLLECTION
-// =====================================================
+// ===============================
 
 
 async function openCollection(
@@ -3682,9 +3567,11 @@ collection
 
 
 
+
 if(!result.rows.length)
 
 return;
+
 
 
 
@@ -3715,7 +3602,7 @@ buttons.inline_keyboard.push(
 
 text:
 
-`Season ${row.season}`,
+`📺 Season ${row.season}`,
 
 callback_data:
 
@@ -3729,6 +3616,7 @@ callback_data:
 
 
 });
+
 
 
 
@@ -3770,9 +3658,9 @@ reply_markup:buttons
 
 
 
-// =====================================================
+// ===============================
 // SEASON BUTTON
-// =====================================================
+// ===============================
 
 
 bot.on(
@@ -3804,6 +3692,7 @@ return;
 const parts =
 
 query.data.split("_");
+
 
 
 
@@ -3864,7 +3753,6 @@ query.message.chat.id,
 
 
 
-
 const buttons = {
 
 
@@ -3877,16 +3765,13 @@ inline_keyboard:[]
 
 
 
-
 buttons.inline_keyboard.push(
 
 [
 
 {
 
-text:
-
-"📥 Send All Episodes",
+text:"📥 Send All Episodes",
 
 callback_data:
 
@@ -3897,7 +3782,6 @@ callback_data:
 ]
 
 );
-
 
 
 
@@ -3929,8 +3813,9 @@ callback_data:
 );
 
 
-
 });
+
+
 
 
 
@@ -3944,6 +3829,7 @@ query.message.chat.id,
 `
 
 📺 ${collection}
+
 
 Season ${season}
 
@@ -3974,9 +3860,9 @@ reply_markup:buttons
 
 
 
-// =====================================================
+// ===============================
 // SEND ALL EPISODES
-// =====================================================
+// ===============================
 
 
 bot.on(
@@ -3998,7 +3884,6 @@ if(
 )
 
 return;
-
 
 
 
@@ -4032,6 +3917,7 @@ parts[3];
 
 
 
+
 const episodes =
 
 await getEpisodes(
@@ -4041,6 +3927,7 @@ collection,
 season
 
 );
+
 
 
 
@@ -4058,7 +3945,6 @@ query.message.chat.id,
 `
 
 );
-
 
 
 
@@ -4089,15 +3975,17 @@ caption:
 🎬 ${ep.title}
 
 
-Episode:
+📺 Episode:
 
 ${ep.episode}
 
 
-Quality:
+🎞 Quality:
 
 ${ep.quality || "N/A"}
 
+
+⚡ CineXClub
 
 `
 
@@ -4107,19 +3995,17 @@ ${ep.quality || "N/A"}
 
 
 
-
-
 await new Promise(
 
-r=>setTimeout(r,1000)
+resolve=>
+
+setTimeout(resolve,1000)
 
 );
 
 
 
 }
-
-
 
 
 
@@ -4133,9 +4019,9 @@ r=>setTimeout(r,1000)
 
 
 
-// =====================================================
+// ===============================
 // COLLECTION LIST
-// =====================================================
+// ===============================
 
 
 async function getCollectionList(){
@@ -4163,7 +4049,7 @@ ORDER BY collection
 
 return result.rows.map(
 
-x=>x.collection
+row=>row.collection
 
 );
 
@@ -4177,9 +4063,10 @@ x=>x.collection
 
 
 
-// =====================================================
+
+// ===============================
 // EXPORT
-// =====================================================
+// ===============================
 
 
 global.CineX.getEpisodes =
@@ -4207,8 +4094,8 @@ getCollectionList;
 // CineXClub Bot
 // FINAL CLEAN INDEX.JS
 // PART 8/13
-// Admin Panel Core
-// Upload + Requests + Statistics + Broadcast + Settings
+// Admin Panel
+// Upload + Statistics + Broadcast + Settings Base
 // =====================================================
 
 
@@ -4224,9 +4111,8 @@ const {
 
 const {
 
-    getUserCount,
-    getPendingRequests,
-    pool
+    pool,
+    getUserCount
 
 } = global.CineX;
 
@@ -4236,16 +4122,20 @@ const {
 
 
 
-// =====================================================
+
+
+// ===============================
 // ADMIN CHECK
-// =====================================================
+// ===============================
 
 
-function isAdmin(id){
+function checkAdmin(id){
+
 
 return id.toString()
 ===
 ADMIN_ID.toString();
+
 
 }
 
@@ -4256,9 +4146,10 @@ ADMIN_ID.toString();
 
 
 
-// =====================================================
-// ADMIN PANEL
-// =====================================================
+
+// ===============================
+// ADMIN PANEL MENU
+// ===============================
 
 
 function sendAdminPanel(chatId){
@@ -4284,6 +4175,7 @@ callback_data:"admin_upload"
 ],
 
 
+
 [
 
 {
@@ -4295,6 +4187,7 @@ callback_data:"admin_requests"
 }
 
 ],
+
 
 
 [
@@ -4310,6 +4203,7 @@ callback_data:"admin_stats"
 ],
 
 
+
 [
 
 {
@@ -4321,6 +4215,7 @@ callback_data:"admin_broadcast"
 }
 
 ],
+
 
 
 [
@@ -4335,11 +4230,9 @@ callback_data:"admin_settings"
 
 ]
 
-
 ]
 
 };
-
 
 
 
@@ -4355,7 +4248,7 @@ chatId,
 👑 CineXClub Admin Panel
 
 
-Choose Option:
+Select Option:
 
 `
 
@@ -4381,25 +4274,29 @@ reply_markup:keyboard
 
 
 
-// =====================================================
+// ===============================
 // ADMIN COMMAND
-// =====================================================
+// ===============================
 
 
 bot.onText(
 
 /\/admin/,
 
-async(msg)=>{
+(msg)=>{
+
 
 
 if(
 
-!isAdmin(msg.from.id)
+!checkAdmin(msg.from.id)
 
 )
 
 return;
+
+
+
 
 
 
@@ -4421,9 +4318,9 @@ msg.chat.id
 
 
 
-// =====================================================
-// ADMIN BUTTON HANDLER
-// =====================================================
+// ===============================
+// ADMIN CALLBACKS
+// ===============================
 
 
 bot.on(
@@ -4436,11 +4333,15 @@ async(query)=>{
 
 if(
 
-!isAdmin(query.from.id)
+!checkAdmin(query.from.id)
 
 )
 
 return;
+
+
+
+
 
 
 
@@ -4454,12 +4355,7 @@ query.message.chat.id;
 
 
 
-
-switch(query.data){
-
-
-
-case "admin_upload":
+if(query.data === "admin_upload"){
 
 
 
@@ -4473,7 +4369,11 @@ chatId,
 
 
 
-bot.sendMessage(
+
+
+
+
+return bot.sendMessage(
 
 chatId,
 
@@ -4490,7 +4390,7 @@ Send video with caption.
 
 
 
-break;
+}
 
 
 
@@ -4498,31 +4398,28 @@ break;
 
 
 
-case "admin_requests":
+if(query.data === "admin_requests"){
 
 
 
-showRequests(chatId);
+return bot.sendMessage(
+
+chatId,
+
+`
+
+📩 Request Panel
+
+
+Use request management.
+
+`
+
+);
 
 
 
-break;
-
-
-
-
-
-
-
-case "admin_stats":
-
-
-
-showStats(chatId);
-
-
-
-break;
+}
 
 
 
@@ -4530,7 +4427,29 @@ break;
 
 
 
-case "admin_broadcast":
+
+if(query.data === "admin_stats"){
+
+
+
+return showStats(
+
+chatId
+
+);
+
+
+
+}
+
+
+
+
+
+
+
+
+if(query.data === "admin_broadcast"){
 
 
 
@@ -4544,7 +4463,11 @@ chatId,
 
 
 
-bot.sendMessage(
+
+
+
+
+return bot.sendMessage(
 
 chatId,
 
@@ -4558,7 +4481,7 @@ chatId,
 
 
 
-break;
+}
 
 
 
@@ -4566,15 +4489,29 @@ break;
 
 
 
-case "admin_settings":
+
+if(query.data === "admin_settings"){
 
 
 
-showSettings(chatId);
+return bot.sendMessage(
+
+chatId,
+
+`
+
+⚙️ Settings
 
 
+Welcome Image
 
-break;
+Force Join
+
+Auto Delete
+
+`
+
+);
 
 
 
@@ -4592,101 +4529,16 @@ break;
 
 
 
-// =====================================================
-// REQUEST LIST
-// =====================================================
-
-
-async function showRequests(chatId){
-
-
-
-const requests =
-
-await getPendingRequests();
-
-
-
-
-
-
-
-if(!requests.length){
-
-
-
-return bot.sendMessage(
-
-chatId,
-
-"✅ No Pending Requests"
-
-);
-
-
-
-}
-
-
-
-
-
-
-
-for(
-
-const req of requests
-
-){
-
-
-
-bot.sendMessage(
-
-chatId,
-
-`
-
-📩 Request ID:
-
-${req.id}
-
-
-👤 User:
-
-${req.username || req.user_id}
-
-
-🎬 Request:
-
-${req.request}
-
-`
-
-);
-
-
-
-}
-
-
-
-}
-
-
-
-
-
-
-
-
-
-// =====================================================
+// ===============================
 // STATISTICS
-// =====================================================
+// ===============================
 
 
 async function showStats(chatId){
+
+
+
+try{
 
 
 
@@ -4715,13 +4567,31 @@ FROM contents
 
 
 
+
+
+const downloads =
+
+await pool.query(`
+
+SELECT SUM(downloads)
+
+FROM contents
+
+`);
+
+
+
+
+
+
+
 bot.sendMessage(
 
 chatId,
 
 `
 
-📊 Statistics
+📊 CineXClub Statistics
 
 
 👥 Users:
@@ -4734,9 +4604,33 @@ ${users}
 ${content.rows[0].count}
 
 
+⬇️ Downloads:
+
+${downloads.rows[0].sum || 0}
+
+
 `
 
 );
+
+
+
+}
+
+catch(err){
+
+
+console.log(
+
+"Stats Error:",
+
+err.message
+
+);
+
+
+
+}
 
 
 
@@ -4750,9 +4644,9 @@ ${content.rows[0].count}
 
 
 
-// =====================================================
+// ===============================
 // BROADCAST SYSTEM
-// =====================================================
+// ===============================
 
 
 bot.on(
@@ -4776,11 +4670,14 @@ return;
 
 
 
+
 if(
 
 adminStates.get(msg.chat.id)
 
-!=="broadcast"
+!==
+
+"broadcast"
 
 )
 
@@ -4794,12 +4691,11 @@ return;
 
 if(
 
-!isAdmin(msg.from.id)
+!checkAdmin(msg.from.id)
 
 )
 
 return;
-
 
 
 
@@ -4809,11 +4705,15 @@ return;
 
 const users =
 
-await pool.query(
+await pool.query(`
 
-"SELECT user_id FROM users"
+SELECT user_id
 
-);
+FROM users
+
+`);
+
+
 
 
 
@@ -4821,6 +4721,7 @@ await pool.query(
 
 
 let sent = 0;
+
 
 
 
@@ -4836,6 +4737,7 @@ const user of users.rows
 
 
 try{
+
 
 
 await bot.forwardMessage(
@@ -4909,43 +4811,14 @@ ${sent}
 
 
 
-// =====================================================
-// SETTINGS BASE
-// =====================================================
+// ===============================
+// EXPORT
+// ===============================
 
 
-function showSettings(chatId){
+global.CineX.checkAdmin =
 
-
-
-bot.sendMessage(
-
-chatId,
-
-`
-
-⚙️ Settings
-
-
-🖼 Welcome Image
-
-🧹 Auto Delete
-
-🔒 Force Join
-
-
-`
-
-);
-
-
-
-}
-
-
-
-
-
+checkAdmin;
 
 
 
@@ -4955,9 +4828,9 @@ sendAdminPanel;
 
 
 
-global.CineX.isAdmin =
+global.CineX.showStats =
 
-isAdmin;
+showStats;
 
 
 
@@ -4968,9 +4841,9 @@ isAdmin;
 // CineXClub Bot
 // FINAL CLEAN INDEX.JS
 // PART 9/13
-// Request Accept / Reject
+// Request System
+// Admin Accept / Reject
 // User Notification
-// Upload Controls
 // =====================================================
 
 
@@ -4986,7 +4859,9 @@ const {
 const {
 
     pool,
+
     saveRequest,
+
     updateRequestStatus
 
 } = global.CineX;
@@ -4995,28 +4870,13 @@ const {
 
 
 
-// =====================================================
-// ADMIN CHECK
-// =====================================================
-
-
-function requestAdmin(id){
-
-return id.toString()
-===
-ADMIN_ID.toString();
-
-}
 
 
 
 
-
-
-
-// =====================================================
-// USER REQUEST COMMAND
-// =====================================================
+// ===============================
+// REQUEST COMMAND
+// ===============================
 
 
 bot.onText(
@@ -5027,9 +4887,10 @@ async(msg,match)=>{
 
 
 
-const request =
+const requestName =
 
 match[1];
+
 
 
 
@@ -5042,7 +4903,7 @@ msg.from.id,
 
 msg.from.username || "",
 
-request
+requestName
 
 );
 
@@ -5061,7 +4922,7 @@ msg.chat.id,
 ✅ Request Submitted
 
 
-🎬 ${request}
+🎬 ${requestName}
 
 
 Admin will review.
@@ -5082,18 +4943,17 @@ ADMIN_ID,
 
 `
 
-📩 New Request
+📩 New Movie Request
 
 
-User:
+👤 User:
 
 ${msg.from.username || msg.from.id}
 
 
-Movie:
+🎬 Request:
 
-${request}
-
+${requestName}
 
 `
 
@@ -5111,12 +4971,12 @@ ${request}
 
 
 
-// =====================================================
-// ADMIN REQUEST BUTTONS
-// =====================================================
+// ===============================
+// SHOW REQUESTS TO ADMIN
+// ===============================
 
 
-async function showRequestButtons(chatId){
+async function showRequests(chatId){
 
 
 
@@ -5139,14 +4999,16 @@ ORDER BY id DESC
 
 
 
+
 if(!result.rows.length){
+
 
 
 return bot.sendMessage(
 
 chatId,
 
-"✅ No Requests"
+"✅ No Pending Requests"
 
 );
 
@@ -5202,7 +5064,7 @@ text:"✅ Accept",
 
 callback_data:
 
-`accept_request_${req.id}`
+`accept_${req.id}`
 
 },
 
@@ -5212,7 +5074,7 @@ text:"❌ Reject",
 
 callback_data:
 
-`reject_request_${req.id}`
+`reject_${req.id}`
 
 }
 
@@ -5242,9 +5104,9 @@ callback_data:
 
 
 
-// =====================================================
-// ACCEPT / REJECT HANDLER
-// =====================================================
+// ===============================
+// REQUEST CALLBACK
+// ===============================
 
 
 bot.on(
@@ -5255,31 +5117,13 @@ async(query)=>{
 
 
 
-const data =
-
-query.data;
-
-
-
-
-
-
-
 if(
 
-!data.startsWith(
-
-"accept_request_"
-
-)
+!query.data.startsWith("accept_")
 
 &&
 
-!data.startsWith(
-
-"reject_request_"
-
-)
+!query.data.startsWith("reject_")
 
 )
 
@@ -5293,7 +5137,11 @@ return;
 
 if(
 
-!requestAdmin(query.from.id)
+query.from.id.toString()
+
+!==
+
+ADMIN_ID.toString()
 
 )
 
@@ -5307,7 +5155,7 @@ return;
 
 const parts =
 
-data.split("_");
+query.data.split("_");
 
 
 
@@ -5317,17 +5165,17 @@ parts[0];
 
 
 
-const id =
+const requestId =
 
-parts[2];
-
-
+parts[1];
 
 
 
 
 
-const request =
+
+
+const result =
 
 await pool.query(`
 
@@ -5339,7 +5187,7 @@ WHERE id=$1
 
 `,
 [
-id
+requestId
 ]
 
 );
@@ -5349,7 +5197,8 @@ id
 
 
 
-if(!request.rows.length)
+
+if(!result.rows.length)
 
 return;
 
@@ -5359,27 +5208,24 @@ return;
 
 
 
-const user =
+const request =
 
-request.rows[0];
-
-
+result.rows[0];
 
 
 
 
 
-if(
 
-action === "accept"
 
-){
+
+if(action === "accept"){
 
 
 
 await updateRequestStatus(
 
-id,
+requestId,
 
 "accepted"
 
@@ -5390,19 +5236,20 @@ id,
 
 
 
+
 await bot.sendMessage(
 
-user.user_id,
+request.user_id,
 
 `
 
-✅ Your request accepted
+✅ Request Accepted
 
 
-🎬 ${user.request}
+🎬 ${request.request}
 
 
-Admin will upload soon.
+Your content will be added soon.
 
 `
 
@@ -5416,17 +5263,16 @@ Admin will upload soon.
 
 
 
-if(
 
-action === "reject"
 
-){
+
+if(action === "reject"){
 
 
 
 await updateRequestStatus(
 
-id,
+requestId,
 
 "rejected"
 
@@ -5440,14 +5286,14 @@ id,
 
 await bot.sendMessage(
 
-user.user_id,
+request.user_id,
 
 `
 
-❌ Your request rejected
+❌ Request Rejected
 
 
-🎬 ${user.request}
+🎬 ${request.request}
 
 `
 
@@ -5456,6 +5302,7 @@ user.user_id,
 
 
 }
+
 
 
 
@@ -5480,81 +5327,26 @@ query.id
 
 
 
-// =====================================================
-// UPLOAD SHORTCUT COMMANDS
-// =====================================================
+// ===============================
+// ADMIN REQUEST COMMAND
+// ===============================
 
 
 bot.onText(
 
-/\/uploadmovie/,
+/\/requests/,
 
-(msg)=>{
+async(msg)=>{
 
 
 
 if(
 
-!requestAdmin(msg.from.id)
+msg.from.id.toString()
 
-)
+!==
 
-return;
-
-
-
-
-
-
-bot.sendMessage(
-
-msg.chat.id,
-
-`
-
-🎬 Movie Upload Format
-
-
-ID:
-
-Type: Movie
-
-Title:
-
-Year:
-
-Quality:
-
-Audio:
-
-Size:
-
-`
-
-);
-
-
-
-});
-
-
-
-
-
-
-
-
-bot.onText(
-
-/\/uploadseries/,
-
-(msg)=>{
-
-
-
-if(
-
-!requestAdmin(msg.from.id)
+ADMIN_ID.toString()
 
 )
 
@@ -5566,86 +5358,9 @@ return;
 
 
 
-bot.sendMessage(
+showRequests(
 
-msg.chat.id,
-
-`
-
-📺 Series Upload Format
-
-
-ID:
-
-Type: Series
-
-Collection:
-
-Season:
-
-Episode:
-
-Quality:
-
-`
-
-);
-
-
-
-});
-
-
-
-
-
-
-
-
-bot.onText(
-
-/\/uploadanime/,
-
-(msg)=>{
-
-
-
-if(
-
-!requestAdmin(msg.from.id)
-
-)
-
-return;
-
-
-
-
-
-
-
-bot.sendMessage(
-
-msg.chat.id,
-
-`
-
-🎌 Anime Upload Format
-
-
-ID:
-
-Type: Anime
-
-Collection:
-
-Season:
-
-Episode:
-
-Quality:
-
-`
+msg.chat.id
 
 );
 
@@ -5661,14 +5376,14 @@ Quality:
 
 
 
-// =====================================================
+// ===============================
 // EXPORT
-// =====================================================
+// ===============================
 
 
-global.CineX.showRequestButtons =
+global.CineX.showRequests =
 
-showRequestButtons;
+showRequests;
 
 
 
@@ -5680,8 +5395,8 @@ showRequestButtons;
 // FINAL CLEAN INDEX.JS
 // PART 10/13
 // Advanced Statistics
+// Settings System
 // Broadcast Upgrade
-// Settings Controls
 // =====================================================
 
 
@@ -5697,9 +5412,10 @@ const {
 const {
 
     pool,
+
     setSetting,
-    getSetting,
-    removeSetting
+
+    getSetting
 
 } = global.CineX;
 
@@ -5709,16 +5425,20 @@ const {
 
 
 
-// =====================================================
+
+
+// ===============================
 // ADMIN CHECK
-// =====================================================
+// ===============================
 
 
-function settingsAdmin(id){
+function adminOnly(id){
+
 
 return id.toString()
 ===
 ADMIN_ID.toString();
+
 
 }
 
@@ -5730,9 +5450,9 @@ ADMIN_ID.toString();
 
 
 
-// =====================================================
+// ===============================
 // ADVANCED STATISTICS
-// =====================================================
+// ===============================
 
 
 async function advancedStats(chatId){
@@ -5754,6 +5474,8 @@ FROM users
 
 
 
+
+
 const movies =
 
 await pool.query(`
@@ -5765,6 +5487,7 @@ FROM contents
 WHERE type='Movie'
 
 `);
+
 
 
 
@@ -5820,7 +5543,6 @@ FROM contents
 
 
 
-
 bot.sendMessage(
 
 chatId,
@@ -5853,7 +5575,6 @@ ${anime.rows[0].count}
 ⬇️ Downloads:
 
 ${downloads.rows[0].sum || 0}
-
 
 `
 
@@ -5890,22 +5611,23 @@ err.message
 
 
 
-// =====================================================
+// ===============================
 // SETTINGS MENU
-// =====================================================
+// ===============================
 
 
 async function settingsMenu(chatId){
 
 
 
-const image =
+const welcome =
 
 await getSetting(
 
 "welcome_image"
 
 );
+
 
 
 
@@ -5918,6 +5640,7 @@ await getSetting(
 "auto_delete"
 
 );
+
 
 
 
@@ -5937,75 +5660,18 @@ await getSetting(
 
 
 
-
-const keyboard = {
-
-
-inline_keyboard:[
-
-
-[
-
-{
-
-text:"🖼 Welcome Image",
-
-callback_data:"welcome_image"
-
-}
-
-],
-
-
-
-[
-
-{
-
-text:"🧹 Auto Delete",
-
-callback_data:"auto_delete"
-
-}
-
-],
-
-
-
-[
-
-{
-
-text:"🔒 Force Join",
-
-callback_data:"force_join_setting"
-
-}
-
-]
-
-
-]
-
-};
-
-
-
-
-
-
 bot.sendMessage(
 
 chatId,
 
 `
 
-⚙️ Bot Settings
+⚙️ CineXClub Settings
 
 
 🖼 Welcome Image:
 
-${image ? "ON":"OFF"}
+${welcome ? "Enabled":"Disabled"}
 
 
 🧹 Auto Delete:
@@ -6015,19 +5681,11 @@ ${autoDelete || "10 Minutes"}
 
 🔒 Force Join:
 
-${forceJoin || "Default"}
+${forceJoin || "Not Set"}
 
 
 `
 
-,
-
-{
-
-reply_markup:keyboard
-
-}
-
 );
 
 
@@ -6042,157 +5700,14 @@ reply_markup:keyboard
 
 
 
-// =====================================================
-// SETTINGS BUTTONS
-// =====================================================
-
-
-bot.on(
-
-"callback_query",
-
-async(query)=>{
-
-
-
-if(
-
-!settingsAdmin(query.from.id)
-
-)
-
-return;
-
-
-
-
-
-
-
-switch(query.data){
-
-
-
-case "auto_delete":
-
-
-
-await setSetting(
-
-"auto_delete",
-
-"10"
-
-);
-
-
-
-bot.sendMessage(
-
-query.message.chat.id,
-
-"✅ Auto Delete set 10 minutes"
-
-);
-
-
-
-break;
-
-
-
-
-
-
-
-
-case "force_join_setting":
-
-
-
-await setSetting(
-
-"force_join",
-
-process.env.FORCE_CHANNEL || ""
-
-);
-
-
-
-bot.sendMessage(
-
-query.message.chat.id,
-
-"✅ Force Join Saved"
-
-);
-
-
-
-break;
-
-
-
-
-
-
-
-
-case "admin_stats":
-
-
-
-advancedStats(
-
-query.message.chat.id
-
-);
-
-
-
-break;
-
-
-
-case "admin_settings":
-
-
-
-settingsMenu(
-
-query.message.chat.id
-
-);
-
-
-
-break;
-
-
-
-}
-
-
-
-});
-
-
-
-
-
-
-
-
-
-// =====================================================
-// BROADCAST COMMAND
-// =====================================================
+// ===============================
+// SETTINGS COMMAND
+// ===============================
 
 
 bot.onText(
 
-/\/broadcast/,
+/\/settings/,
 
 async(msg)=>{
 
@@ -6200,7 +5715,7 @@ async(msg)=>{
 
 if(
 
-!settingsAdmin(msg.from.id)
+!adminOnly(msg.from.id)
 
 )
 
@@ -6211,11 +5726,57 @@ return;
 
 
 
-global.CineX.adminStates.set(
 
-msg.chat.id,
+settingsMenu(
 
-"broadcast"
+msg.chat.id
+
+);
+
+
+
+});
+
+
+
+
+
+
+
+
+
+// ===============================
+// AUTO DELETE SETTING
+// ===============================
+
+
+bot.onText(
+
+/\/setdelete (.+)/,
+
+async(msg,match)=>{
+
+
+
+if(
+
+!adminOnly(msg.from.id)
+
+)
+
+return;
+
+
+
+
+
+
+
+await setSetting(
+
+"auto_delete",
+
+match[1]
 
 );
 
@@ -6231,7 +5792,10 @@ msg.chat.id,
 
 `
 
-📢 Send broadcast message now
+✅ Auto Delete Updated
+
+
+${match[1]} Minutes
 
 `
 
@@ -6249,9 +5813,128 @@ msg.chat.id,
 
 
 
-// =====================================================
+// ===============================
+// FORCE JOIN SETTING
+// ===============================
+
+
+bot.onText(
+
+/\/setforce (.+)/,
+
+async(msg,match)=>{
+
+
+
+if(
+
+!adminOnly(msg.from.id)
+
+)
+
+return;
+
+
+
+
+
+
+
+await setSetting(
+
+"force_join",
+
+match[1]
+
+);
+
+
+
+
+
+
+
+bot.sendMessage(
+
+msg.chat.id,
+
+`
+
+✅ Force Join Updated
+
+
+${match[1]}
+
+`
+
+);
+
+
+
+});
+
+
+
+
+
+
+
+
+
+// ===============================
+// STAT COMMAND
+// ===============================
+
+
+bot.onText(
+
+/\/stats/,
+
+async(msg)=>{
+
+
+
+if(
+
+!adminOnly(msg.from.id)
+
+)
+
+return;
+
+
+
+
+
+
+
+advancedStats(
+
+msg.chat.id
+
+);
+
+
+
+});
+
+
+
+
+
+
+
+
+
+// ===============================
 // EXPORT
-// =====================================================
+// ===============================
+
+
+global.CineX.adminOnly =
+
+adminOnly;
+
 
 
 global.CineX.advancedStats =
@@ -6304,16 +5987,19 @@ const {
 
 
 
-// =====================================================
+
+// ===============================
 // ADMIN CHECK
-// =====================================================
+// ===============================
 
 
 function imageAdmin(id){
 
+
 return id.toString()
 ===
 ADMIN_ID.toString();
+
 
 }
 
@@ -6324,9 +6010,10 @@ ADMIN_ID.toString();
 
 
 
-// =====================================================
-// SET WELCOME IMAGE COMMAND
-// =====================================================
+
+// ===============================
+// CHANGE WELCOME IMAGE
+// ===============================
 
 
 bot.onText(
@@ -6344,7 +6031,6 @@ if(
 )
 
 return;
-
 
 
 
@@ -6372,7 +6058,7 @@ msg.chat.id,
 
 `
 
-🖼 Send Welcome Image
+🖼 Send welcome image now.
 
 
 This image will be saved in database.
@@ -6393,9 +6079,9 @@ This image will be saved in database.
 
 
 
-// =====================================================
+// ===============================
 // RECEIVE IMAGE
-// =====================================================
+// ===============================
 
 
 bot.on(
@@ -6458,7 +6144,6 @@ photos[photos.length - 1];
 
 
 
-
 await setSetting(
 
 "welcome_image",
@@ -6466,7 +6151,6 @@ await setSetting(
 image.file_id
 
 );
-
 
 
 
@@ -6496,12 +6180,7 @@ msg.chat.id,
 ✅ Welcome Image Updated
 
 
-Database:
-
-settings
-
-
-Key:
+Database key:
 
 welcome_image
 
@@ -6521,9 +6200,9 @@ welcome_image
 
 
 
-// =====================================================
+// ===============================
 // REMOVE WELCOME IMAGE
-// =====================================================
+// ===============================
 
 
 bot.onText(
@@ -6548,13 +6227,11 @@ return;
 
 
 
-
 await removeSetting(
 
 "welcome_image"
 
 );
-
 
 
 
@@ -6571,7 +6248,7 @@ msg.chat.id,
 ❌ Welcome Image Removed
 
 
-Bot will use text welcome.
+Bot will use normal text welcome.
 
 `
 
@@ -6589,9 +6266,9 @@ Bot will use text welcome.
 
 
 
-// =====================================================
-// WELCOME IMAGE STATUS
-// =====================================================
+// ===============================
+// CHECK IMAGE STATUS
+// ===============================
 
 
 bot.onText(
@@ -6616,6 +6293,7 @@ return;
 
 
 
+
 const image =
 
 await getSetting(
@@ -6629,11 +6307,15 @@ await getSetting(
 
 
 
+
+
 bot.sendMessage(
 
 msg.chat.id,
 
-image ?
+image
+
+?
 
 `
 
@@ -6667,9 +6349,9 @@ image ?
 
 
 
-// =====================================================
-// SETTINGS BUTTON
-// =====================================================
+// ===============================
+// SETTINGS BUTTON HANDLER
+// ===============================
 
 
 bot.on(
@@ -6717,9 +6399,6 @@ query.message.chat.id,
 🖼 Welcome Image Management
 
 
-Commands:
-
-
 /setwelcome
 
 ➡️ Change Image
@@ -6732,8 +6411,7 @@ Commands:
 
 /welcomeinfo
 
-➡️ Check Status
-
+➡️ Status
 
 `
 
@@ -6751,9 +6429,9 @@ Commands:
 
 
 
-// =====================================================
+// ===============================
 // EXPORT
-// =====================================================
+// ===============================
 
 
 global.CineX.imageAdmin =
@@ -6769,10 +6447,10 @@ imageAdmin;
 // CineXClub Bot
 // FINAL CLEAN INDEX.JS
 // PART 12/13
+// Auto Delete System
 // Download Counter
-// Auto Delete Upgrade
 // Thumbnail Support
-// File Cleanup
+// Cleanup
 // =====================================================
 
 
@@ -6787,7 +6465,6 @@ const {
 
 const {
 
-    pool,
     increaseDownload,
     getSetting
 
@@ -6801,20 +6478,18 @@ const {
 
 
 
-// =====================================================
-// GET AUTO DELETE TIME
-// =====================================================
+// ===============================
+// GET DELETE TIME
+// ===============================
 
 
-async function getAutoDeleteTime(){
-
+async function getDeleteTime(){
 
 
 try{
 
 
-
-const value =
+const time =
 
 await getSetting(
 
@@ -6827,16 +6502,13 @@ await getSetting(
 
 
 
-if(value)
+return time ?
 
-return Number(value);
+Number(time)
 
+:
 
-
-
-
-
-return 10;
+10;
 
 
 
@@ -6845,29 +6517,31 @@ return 10;
 catch(err){
 
 
+
 return 10;
 
 
-}
-
-
 
 }
 
 
 
+}
 
 
 
 
 
 
-// =====================================================
-// SEND FILE WITH PROTECTION
-// =====================================================
 
 
-async function sendProtectedFile(
+
+// ===============================
+// SEND PROTECTED VIDEO
+// ===============================
+
+
+async function sendProtectedVideo(
 
 chatId,
 
@@ -6883,7 +6557,7 @@ try{
 
 
 
-let sent;
+let message;
 
 
 
@@ -6891,21 +6565,7 @@ let sent;
 
 
 
-if(content.thumbnail){
-
-
-
-sent =
-
-await bot.sendVideo(
-
-chatId,
-
-content.file_id,
-
-{
-
-caption:
+const caption =
 
 `
 
@@ -6934,7 +6594,30 @@ ${content.size || "N/A"}
 
 ⚡ CineXClub
 
-`,
+`;
+
+
+
+
+
+
+
+
+if(content.thumbnail){
+
+
+
+message =
+
+await bot.sendVideo(
+
+chatId,
+
+content.file_id,
+
+{
+
+caption,
 
 thumb:
 
@@ -6952,7 +6635,7 @@ else{
 
 
 
-sent =
+message =
 
 await bot.sendVideo(
 
@@ -6962,26 +6645,7 @@ content.file_id,
 
 {
 
-caption:
-
-`
-
-🎬 ${content.title}
-
-
-📌 Type:
-
-${content.type}
-
-
-🎞 Quality:
-
-${content.quality || "N/A"}
-
-
-⚡ CineXClub
-
-`
+caption
 
 }
 
@@ -7016,13 +6680,13 @@ userId
 
 
 
-
-// AUTO DELETE TIMER
+// AUTO DELETE
 
 
 const minutes =
 
-await getAutoDeleteTime();
+await getDeleteTime();
+
 
 
 
@@ -7046,15 +6710,17 @@ await bot.deleteMessage(
 
 chatId,
 
-sent.message_id
+message.message_id
 
 );
 
 
 
+
+
 deleteTimers.delete(
 
-sent.message_id
+message.message_id
 
 );
 
@@ -7068,7 +6734,7 @@ catch(err){
 
 console.log(
 
-"Auto Delete Error:",
+"Delete Error:",
 
 err.message
 
@@ -7095,11 +6761,12 @@ minutes * 60 * 1000
 
 deleteTimers.set(
 
-sent.message_id,
+message.message_id,
 
 timer
 
 );
+
 
 
 
@@ -7110,9 +6777,10 @@ timer
 catch(err){
 
 
+
 console.log(
 
-"Protected Send Error:",
+"Send Video Error:",
 
 err.message
 
@@ -7124,7 +6792,7 @@ bot.sendMessage(
 
 chatId,
 
-"❌ Unable to send file"
+"❌ Video sending failed"
 
 );
 
@@ -7144,16 +6812,12 @@ chatId,
 
 
 
-// =====================================================
-// CLEAR DELETE TIMER
-// =====================================================
+// ===============================
+// CLEAR TIMER
+// ===============================
 
 
-function clearDeleteTimer(
-
-messageId
-
-){
+function clearTimer(messageId){
 
 
 
@@ -7201,9 +6865,9 @@ messageId
 
 
 
-// =====================================================
-// ADMIN CLEAR TIMERS
-// =====================================================
+// ===============================
+// CLEAR ALL TIMERS
+// ===============================
 
 
 bot.onText(
@@ -7232,13 +6896,17 @@ return;
 
 
 
-deleteTimers.forEach(timer=>{
+deleteTimers.forEach(
+
+timer=>{
 
 
 clearTimeout(timer);
 
 
-});
+}
+
+);
 
 
 
@@ -7261,7 +6929,7 @@ msg.chat.id,
 
 `
 
-✅ All Auto Delete Timers Cleared
+✅ All delete timers cleared
 
 `
 
@@ -7279,20 +6947,20 @@ msg.chat.id,
 
 
 
-// =====================================================
+// ===============================
 // EXPORT
-// =====================================================
+// ===============================
 
 
-global.CineX.sendProtectedFile =
+global.CineX.sendProtectedVideo =
 
-sendProtectedFile;
+sendProtectedVideo;
 
 
 
-global.CineX.clearDeleteTimer =
+global.CineX.clearTimer =
 
-clearDeleteTimer;
+clearTimer;
 
 
 
@@ -7303,9 +6971,7 @@ clearDeleteTimer;
 // CineXClub Bot
 // FINAL CLEAN INDEX.JS
 // PART 13/13
-// Final Merge Finish
-// Bot Start Protection
-// Complete Error Handling
+// Final Handlers + Health + Bot Finish
 // =====================================================
 
 
@@ -7317,13 +6983,23 @@ const {
 
 
 
+const {
+
+    pool
+
+} = global.CineX;
 
 
 
 
-// =====================================================
+
+
+
+
+
+// ===============================
 // HELP COMMAND
-// =====================================================
+// ===============================
 
 
 bot.onText(
@@ -7339,14 +7015,22 @@ msg.chat.id,
 
 `
 
-🎬 CineXClub Bot Help
+🎬 CineXClub Help
 
 
-🔎 Search Movies
+🔎 Search:
 
-📺 Series & Anime Episodes
+Use Search button
 
-📩 Request Content
+
+📩 Request:
+
+/request Movie Name
+
+
+📥 Download:
+
+Open content and click Watch
 
 
 Commands:
@@ -7355,8 +7039,6 @@ Commands:
 /start
 
 /help
-
-/request Movie Name
 
 
 `
@@ -7375,9 +7057,9 @@ Commands:
 
 
 
-// =====================================================
-// ADMIN START COMMAND
-// =====================================================
+// ===============================
+// ADMIN PANEL COMMAND
+// ===============================
 
 
 bot.onText(
@@ -7385,6 +7067,7 @@ bot.onText(
 /\/panel/,
 
 (msg)=>{
+
 
 
 if(
@@ -7398,6 +7081,7 @@ global.CineX.ADMIN_ID.toString()
 )
 
 return;
+
 
 
 
@@ -7422,93 +7106,9 @@ msg.chat.id
 
 
 
-// =====================================================
-// FINAL CALLBACK ERROR PROTECTION
-// =====================================================
-
-
-bot.on(
-
-"callback_query",
-
-async(query)=>{
-
-
-try{
-
-
-await bot.answerCallbackQuery(
-
-query.id
-
-);
-
-
-
-}
-
-catch(err){
-
-
-console.log(
-
-"Callback Error:",
-
-err.message
-
-);
-
-
-
-}
-
-
-
-});
-
-
-
-
-
-
-
-
-
-// =====================================================
-// BOT ERROR HANDLING
-// =====================================================
-
-
-bot.on(
-
-"error",
-
-(err)=>{
-
-
-console.log(
-
-"Bot Error:",
-
-err.message
-
-);
-
-
-
-});
-
-
-
-
-
-
-
-
-
-// =====================================================
-// DATABASE HEALTH CHECK
-// =====================================================
+// ===============================
+// HEALTH CHECK LOOP
+// ===============================
 
 
 setInterval(
@@ -7519,7 +7119,7 @@ async()=>{
 try{
 
 
-await global.CineX.pool.query(
+await pool.query(
 
 "SELECT NOW()"
 
@@ -7529,7 +7129,7 @@ await global.CineX.pool.query(
 
 console.log(
 
-"✅ Database Alive"
+"✅ Database Health OK"
 
 );
 
@@ -7540,10 +7140,11 @@ console.log(
 catch(err){
 
 
-
 console.log(
 
-"❌ Database Check Failed"
+"❌ Database Health Failed",
+
+err.message
 
 );
 
@@ -7567,21 +7168,21 @@ console.log(
 
 
 
-// =====================================================
-// FINAL STATUS
-// =====================================================
+// ===============================
+// BOT START MESSAGE
+// ===============================
 
 
 console.log(`
 
 
-====================================
+================================
 
 
 🎬 CineXClub Bot Online
 
 
-FEATURES ACTIVE:
+ACTIVE FEATURES:
 
 
 ✅ PostgreSQL Database
@@ -7635,7 +7236,7 @@ FEATURES ACTIVE:
 ✅ Error Handling
 
 
-====================================
+================================
 
 
 `);
@@ -7644,6 +7245,10 @@ FEATURES ACTIVE:
 
 
 
-// =====================================================
-// END OF FINAL INDEX.JS
-// =====================================================
+
+
+
+
+// ===============================
+// END FINAL INDEX.JS
+// ===============================

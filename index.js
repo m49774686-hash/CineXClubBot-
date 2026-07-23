@@ -565,6 +565,10 @@ bot.on("callback_query", async (query) => {
     const data = query.data;
 
     try {
+        if(data.startsWith("download_")){
+
+    const id = data.replace("download_","");
+            
 
         // ---------- ADMIN ----------
         if (isAdmin(userId)) {
@@ -1386,12 +1390,6 @@ if(data.startsWith("open_")){
 }
 
 // download_xxxxxxxxx
-
-if(data.startsWith("download_")){
-
-    const id = data.replace("download_","");
-
-
 
     if(!joined){
 

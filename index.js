@@ -56,7 +56,10 @@ const bot = new TelegramBot(BOT_TOKEN, {
 });
 
 console.log("🤖 Starting CineXClub Bot...");
-
+bot.on("photo", (msg) => {
+    const photo = msg.photo[msg.photo.length - 1];
+    console.log("WELCOME IMAGE FILE ID:", photo.file_id);
+});
 // ======================
 // POSTGRESQL
 // ======================

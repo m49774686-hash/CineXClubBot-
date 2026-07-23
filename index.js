@@ -638,7 +638,7 @@ function homeButtons() {
 
 async function showWelcome(chatId, user) {
 
-    const sent = await bot.sendPhoto(
+    const sent = await bot.sendMessage(
 
         chatId,
 

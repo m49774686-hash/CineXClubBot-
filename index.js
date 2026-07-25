@@ -12413,6 +12413,71 @@ function getAutoDeleteButtons() {
 // ===================================================
 // OPEN BOT SETTINGS
 // ===================================================
+// ===================================================
+// OPEN ADMIN PANEL
+// ===================================================
+
+async function openAdminPanel(chatId){
+
+    await bot.sendMessage(
+        chatId,
+`
+👨‍💻 Admin Panel
+
+Select an option:
+`,
+{
+reply_markup:{
+inline_keyboard:[
+
+[
+{text:"📤 Upload", callback_data:"admin_upload"}
+],
+
+[
+{text:"📁 Uploaded Files", callback_data:"admin_files"}
+],
+
+[
+{text:"📊 Statistics", callback_data:"admin_stats"}
+],
+
+[
+{text:"📢 Broadcast", callback_data:"admin_broadcast"}
+],
+
+[
+{text:"📥 Requests", callback_data:"admin_requests"}
+],
+
+[
+{text:"🖼 Welcome Settings", callback_data:"admin_welcome"}
+],
+
+[
+{text:"⚙ Bot Settings", callback_data:"admin_settings"}
+],
+
+[
+{text:"🚫 Ban Users", callback_data:"admin_ban"}
+]
+
+]
+}
+}
+);
+
+}
+
+
+
+// ===================================================
+// OPEN BOT SETTINGS
+// ===================================================
+
+async function openBotSettings(
+    chatId
+) {
 
 async function openBotSettings(
     chatId

@@ -10577,3 +10577,6501 @@ async function verifyUploadData(
 // ===================================================
 // PART 1B-22 END
 // ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-23
+// Upload File Receive System
+// ===================================================
+
+
+// ===================================================
+// EXTRACT TELEGRAM FILE ID
+// ===================================================
+
+function extractFileId(
+    message
+) {
+
+
+    try {
+
+
+        if(
+            message.video
+        ) {
+
+
+            return message.video.file_id;
+
+
+        }
+
+
+
+        if(
+            message.document
+        ) {
+
+
+            return message.document.file_id;
+
+
+        }
+
+
+
+        return null;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "File ID Extract Error:",
+            error.message
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// HANDLE UPLOAD FILE
+// ===================================================
+
+async function handleUploadFile(
+    message
+) {
+
+
+    try {
+
+
+        const userId =
+            message.from.id;
+
+
+
+        const session =
+            getUploadSession(
+                userId
+            );
+
+
+
+        if(
+            !session
+        ) {
+
+
+            return false;
+
+
+        }
+
+
+
+        const fileId =
+            extractFileId(
+                message
+            );
+
+
+
+        if(
+            !fileId
+        ) {
+
+
+            await bot.sendMessage(
+
+                message.chat.id,
+
+`
+❌ Upload Failed
+
+Reason:
+File ID missing
+
+Send a valid video file.
+                `
+
+            );
+
+
+            await addLog(
+
+                "Upload Failed",
+
+                "File ID missing"
+
+            );
+
+
+            return false;
+
+
+        }
+
+
+
+        saveUploadFile(
+
+            userId,
+
+            fileId
+
+        );
+
+
+
+        const verify =
+            await verifyUploadData(
+                getUploadSession(
+                    userId
+                )
+            );
+
+
+
+        if(
+            !verify.valid
+        ) {
+
+
+            await bot.sendMessage(
+
+                message.chat.id,
+
+`
+❌ Upload Failed
+
+Reason:
+${verify.reason}
+                `
+
+            );
+
+
+            await addLog(
+
+                "Upload Failed",
+
+                verify.reason
+
+            );
+
+
+            clearUploadSession(
+                userId
+            );
+
+
+            return false;
+
+
+        }
+
+
+
+        const saved =
+            await saveUploadedContent(
+
+                verify.data
+
+            );
+
+
+
+        if(
+            !saved
+        ) {
+
+
+            await bot.sendMessage(
+
+                message.chat.id,
+
+`
+❌ Upload Failed
+
+Reason:
+Database failed
+                `
+
+            );
+
+
+            clearUploadSession(
+                userId
+            );
+
+
+            return false;
+
+
+        }
+
+
+
+        await bot.sendMessage(
+
+            message.chat.id,
+
+`
+✅ Upload Successful
+
+
+🎬 Title:
+${saved.title}
+
+
+🆔 ID:
+${saved.content_id}
+
+
+🎞 Quality:
+${saved.quality}
+
+
+🔐 Access:
+${saved.access_type}
+
+
+Search is now ready.
+            `
+
+        );
+
+
+
+        clearUploadSession(
+
+            userId
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Upload Handler Error:",
+
+            error.message
+
+        );
+
+
+
+        await addLog(
+
+            "Upload Failed",
+
+            error.message
+
+        );
+
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SEND UPLOAD FAILURE MESSAGE
+// ===================================================
+
+async function sendUploadFailure(
+    chatId,
+    reason
+) {
+
+
+    try {
+
+
+        await bot.sendMessage(
+
+            chatId,
+
+`
+❌ Upload Failed
+
+Reason:
+${reason}
+            `
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Failure Message Error:",
+
+            error.message
+
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// VERIFY TELEGRAM MEDIA
+// ===================================================
+
+function isValidMedia(
+    message
+) {
+
+
+    return !!(
+
+        message.video
+        ||
+        message.document
+
+    );
+
+
+}
+
+
+
+// ===================================================
+// PROCESS UPLOAD MESSAGE
+// ===================================================
+
+async function processUploadMessage(
+    message
+) {
+
+
+    try {
+
+
+        const userId =
+            message.from.id;
+
+
+
+        const session =
+            getUploadSession(
+                userId
+            );
+
+
+
+        if(
+            !session
+        ) {
+
+
+            return false;
+
+
+        }
+
+
+
+        if(
+            session.step === "caption"
+        ) {
+
+
+            saveUploadCaption(
+
+                userId,
+
+                message.text
+
+            );
+
+
+
+            await bot.sendMessage(
+
+                message.chat.id,
+
+`
+✅ Caption Saved
+
+Now send video file.
+                `
+
+            );
+
+
+
+            return true;
+
+
+        }
+
+
+
+        if(
+            session.step === "file"
+            &&
+            isValidMedia(message)
+        ) {
+
+
+            return await handleUploadFile(
+                message
+            );
+
+
+        }
+
+
+
+        return false;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Process Upload Message Error:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PART 1B-23 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-24
+// Admin Uploaded Files Management
+// ===================================================
+
+
+// ===================================================
+// SEARCH UPLOADED FILES BY TITLE
+// ===================================================
+
+async function searchUploadedFiles(
+    title
+) {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT *
+
+FROM contents
+
+WHERE title ILIKE $1
+
+ORDER BY created_at DESC;
+`,
+
+[
+
+`%${title}%`
+
+]
+
+            );
+
+
+
+        return result.rows;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Admin File Search Error:",
+            error.message
+        );
+
+
+        return [];
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// CREATE ADMIN FILE BUTTONS
+// ===================================================
+
+function createAdminFileButtons(
+    files
+) {
+
+
+    const buttons = [];
+
+
+
+    for(
+        const file of files
+    ) {
+
+
+        buttons.push(
+
+            [
+
+                {
+
+                    text:
+                    file.title,
+
+                    callback_data:
+                    `admin_open_file_${file.id}`
+
+                }
+
+            ]
+
+        );
+
+
+    }
+
+
+
+    buttons.push(
+
+        [
+
+            {
+
+                text:
+                "❌ Close",
+
+                callback_data:
+                "close"
+
+            }
+
+        ]
+
+    );
+
+
+
+    return buttons;
+
+
+}
+
+
+
+// ===================================================
+// SEND ADMIN FILE SEARCH RESULTS
+// ===================================================
+
+async function sendAdminFileResults(
+    chatId,
+    files
+) {
+
+
+    try {
+
+
+        if(
+            files.length === 0
+        ) {
+
+
+            return bot.sendMessage(
+
+                chatId,
+
+`
+❌ No uploaded files found.
+                `
+
+            );
+
+
+        }
+
+
+
+        return bot.sendMessage(
+
+            chatId,
+
+`
+📁 Uploaded Files
+
+Select a file:
+            `,
+
+            {
+
+                reply_markup:
+
+                {
+
+                    inline_keyboard:
+
+                    createAdminFileButtons(
+                        files
+                    )
+
+                }
+
+            }
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Admin File Result Error:",
+            error.message
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// GET CONTENT BY DATABASE ID
+// ===================================================
+
+async function getContentByDatabaseId(
+    id
+) {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT *
+
+FROM contents
+
+WHERE id=$1
+
+LIMIT 1;
+`,
+
+[
+id
+]
+
+            );
+
+
+
+        if(
+            result.rows.length === 0
+        ) {
+
+
+            return null;
+
+
+        }
+
+
+
+        return result.rows[0];
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Content ID Error:",
+            error.message
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// ADMIN FILE DETAILS
+// ===================================================
+
+async function sendAdminFileDetails(
+    chatId,
+    content
+) {
+
+
+    try {
+
+
+        const message =
+            await bot.sendMessage(
+
+                chatId,
+
+`
+📁 File Details
+
+
+🎬 Title:
+${content.title}
+
+
+🆔 ID:
+${content.content_id}
+
+
+📂 Type:
+${content.type}
+
+
+🎞 Quality:
+${content.quality}
+
+
+🔐 Access:
+${content.access_type}
+                `,
+
+                {
+
+                    reply_markup:
+
+                    {
+
+                        inline_keyboard:
+
+                        [
+
+                            [
+
+                                {
+
+                                    text:
+                                    "📤 Resend",
+
+                                    callback_data:
+                                    `resend_file_${content.id}`
+
+                                }
+
+                            ],
+
+                            [
+
+                                {
+
+                                    text:
+                                    "🔐 Change Access",
+
+                                    callback_data:
+                                    `change_access_${content.id}`
+
+                                }
+
+                            ],
+
+                            [
+
+                                {
+
+                                    text:
+                                    "🗑 Delete",
+
+                                    callback_data:
+                                    `delete_file_${content.id}`
+
+                                }
+
+                            ],
+
+                            [
+
+                                {
+
+                                    text:
+                                    "❌ Close",
+
+                                    callback_data:
+                                    "close"
+
+                                }
+
+                            ]
+
+                        ]
+
+                    }
+
+                }
+
+            );
+
+
+
+        return message;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "File Details Error:",
+            error.message
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// RESEND FILE
+// ===================================================
+
+async function resendAdminFile(
+    chatId,
+    content
+) {
+
+
+    try {
+
+
+        return await sendContentFile(
+
+            chatId,
+
+            content
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Resend File Error:",
+            error.message
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// DELETE FILE FROM DATABASE
+// ===================================================
+
+async function deleteContentFile(
+    id
+) {
+
+
+    try {
+
+
+        await dbQuery(
+
+`
+DELETE FROM contents
+
+WHERE id=$1;
+`,
+
+[
+id
+]
+
+        );
+
+
+
+        await addLog(
+
+            "File Deleted",
+
+            `Database ID: ${id}`
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Delete File Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// CHANGE CONTENT ACCESS
+// ===================================================
+
+async function changeContentAccess(
+    id,
+    access
+) {
+
+
+    try {
+
+
+        await dbQuery(
+
+`
+UPDATE contents
+
+SET access_type=$1
+
+WHERE id=$2;
+`,
+
+[
+
+access,
+
+id
+
+]
+
+        );
+
+
+
+        await addLog(
+
+            "Access Changed",
+
+            `File: ${id} | Access: ${access}`
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Change Access Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PART 1B-24 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-25
+// Welcome Settings Admin System
+// ===================================================
+
+
+// ===================================================
+// GET WELCOME SETTINGS
+// ===================================================
+
+async function getWelcomeSettings() {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+`
+SELECT setting_key, setting_value
+
+FROM settings
+
+WHERE setting_key IN
+(
+'welcome_images',
+'welcome_caption'
+);
+`
+            );
+
+
+
+        const settings = {};
+
+
+
+        for(
+            const row of result.rows
+        ) {
+
+
+            settings[row.setting_key] =
+                row.setting_value;
+
+
+        }
+
+
+
+        return settings;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Welcome Settings Error:",
+            error.message
+        );
+
+
+        return {};
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SAVE WELCOME IMAGE
+// ===================================================
+
+async function saveWelcomeImage(
+    fileId
+) {
+
+
+    try {
+
+
+        const current =
+            getWelcomeImages();
+
+
+
+        if(
+            current.length >= 3
+        ) {
+
+
+            current.shift();
+
+
+        }
+
+
+
+        current.push(
+            fileId
+        );
+
+
+
+        await dbQuery(
+
+`
+INSERT INTO settings
+(
+setting_key,
+setting_value
+)
+
+VALUES
+(
+'welcome_images',
+$1
+)
+
+ON CONFLICT(setting_key)
+
+DO UPDATE SET
+
+setting_value=$1;
+`,
+
+[
+
+JSON.stringify(
+    current
+)
+
+]
+
+        );
+
+
+
+        botSettings.welcome_images =
+            JSON.stringify(
+                current
+            );
+
+
+
+        await addLog(
+
+            "Welcome Image Changed",
+
+            "New welcome image added"
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Save Welcome Image Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// REMOVE WELCOME IMAGES
+// ===================================================
+
+async function removeWelcomeImages() {
+
+
+    try {
+
+
+        await dbQuery(
+
+`
+UPDATE settings
+
+SET setting_value='[]'
+
+WHERE setting_key='welcome_images';
+`
+
+        );
+
+
+
+        botSettings.welcome_images =
+            "[]";
+
+
+
+        await addLog(
+
+            "Welcome Image Changed",
+
+            "All welcome images removed"
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Remove Welcome Image Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SAVE WELCOME CAPTION
+// ===================================================
+
+async function saveWelcomeCaption(
+    caption
+) {
+
+
+    try {
+
+
+        await dbQuery(
+
+`
+INSERT INTO settings
+(
+setting_key,
+setting_value
+)
+
+VALUES
+(
+'welcome_caption',
+$1
+)
+
+ON CONFLICT(setting_key)
+
+DO UPDATE SET
+
+setting_value=$1;
+`,
+
+[
+
+caption
+
+]
+
+        );
+
+
+
+        botSettings.welcome_caption =
+            caption;
+
+
+
+        await addLog(
+
+            "Welcome Caption Changed",
+
+            caption
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Save Welcome Caption Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// WELCOME SETTINGS KEYBOARD
+// ===================================================
+
+function getWelcomeSettingsKeyboard() {
+
+
+    return {
+
+
+        inline_keyboard:
+
+        [
+
+            [
+
+                {
+
+                    text:
+                    "🖼 Add Image",
+
+                    callback_data:
+                    "welcome_add_image"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "🗑 Remove Images",
+
+                    callback_data:
+                    "welcome_remove_images"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "✏️ Change Caption",
+
+                    callback_data:
+                    "welcome_change_caption"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "❌ Close",
+
+                    callback_data:
+                    "close"
+
+                }
+
+            ]
+
+        ]
+
+    };
+
+
+}
+
+
+
+// ===================================================
+// OPEN WELCOME SETTINGS
+// ===================================================
+
+async function openWelcomeSettings(
+    chatId
+) {
+
+
+    try {
+
+
+        await bot.sendMessage(
+
+            chatId,
+
+`
+🖼 Welcome Settings
+
+Manage welcome images and caption.
+            `,
+
+            {
+
+                reply_markup:
+
+                getWelcomeSettingsKeyboard()
+
+            }
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Open Welcome Settings Error:",
+            error.message
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PART 1B-25 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-26
+// Bot Settings + Auto Delete System
+// ===================================================
+
+
+// ===================================================
+// GET BOT SETTINGS
+// ===================================================
+
+async function getBotSettings() {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+`
+SELECT setting_key, setting_value
+
+FROM settings;
+`
+            );
+
+
+
+        const settings = {};
+
+
+
+        for(
+            const row of result.rows
+        ) {
+
+
+            settings[row.setting_key] =
+                row.setting_value;
+
+
+        }
+
+
+
+        return settings;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Bot Settings Load Error:",
+            error.message
+        );
+
+
+        return {};
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SAVE BOT SETTING
+// ===================================================
+
+async function saveBotSetting(
+    key,
+    value
+) {
+
+
+    try {
+
+
+        await dbQuery(
+
+`
+INSERT INTO settings
+(
+setting_key,
+setting_value
+)
+
+VALUES
+(
+$1,
+$2
+)
+
+ON CONFLICT(setting_key)
+
+DO UPDATE SET
+
+setting_value=$2;
+`,
+
+[
+    key,
+    value
+]
+
+        );
+
+
+
+        botSettings[key] =
+            value;
+
+
+
+        await addLog(
+
+            "Settings Changed",
+
+            `${key}: ${value}`
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Save Setting Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// AUTO DELETE OPTIONS
+// ===================================================
+
+function getAutoDeleteButtons() {
+
+
+    return {
+
+
+        inline_keyboard:
+
+        [
+
+            [
+
+                {
+
+                    text:
+                    "5 Minutes",
+
+                    callback_data:
+                    "delete_time_300"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "10 Minutes",
+
+                    callback_data:
+                    "delete_time_600"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "30 Minutes",
+
+                    callback_data:
+                    "delete_time_1800"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "1 Hour",
+
+                    callback_data:
+                    "delete_time_3600"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "Disable",
+
+                    callback_data:
+                    "delete_time_0"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "❌ Close",
+
+                    callback_data:
+                    "close"
+
+                }
+
+            ]
+
+        ]
+
+    };
+
+
+}
+
+
+
+// ===================================================
+// OPEN BOT SETTINGS
+// ===================================================
+
+async function openBotSettings(
+    chatId
+) {
+
+
+    try {
+
+
+        await bot.sendMessage(
+
+            chatId,
+
+`
+⚙ Bot Settings
+
+Select Auto Delete Time:
+            `,
+
+            {
+
+                reply_markup:
+
+                getAutoDeleteButtons()
+
+            }
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Open Bot Settings Error:",
+            error.message
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// UPDATE AUTO DELETE TIME
+// ===================================================
+
+async function updateAutoDeleteTime(
+    seconds
+) {
+
+
+    try {
+
+
+        await saveBotSetting(
+
+            "auto_delete",
+
+            String(seconds)
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Auto Delete Update Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// AUTO DELETE TIMER
+// ===================================================
+
+async function scheduleDelete(
+    chatId,
+    messageId
+) {
+
+
+    try {
+
+
+        const time =
+            Number(
+                botSettings.auto_delete
+                ||
+                0
+            );
+
+
+
+        if(
+            time <= 0
+        ) {
+
+
+            return;
+
+
+        }
+
+
+
+        setTimeout(
+
+            async () => {
+
+
+                try {
+
+
+                    await bot.deleteMessage(
+
+                        chatId,
+
+                        messageId
+
+                    );
+
+
+                }
+
+                catch(error) {
+
+
+                    console.error(
+
+                        "Auto Delete Error:",
+
+                        error.message
+
+                    );
+
+
+                }
+
+
+            },
+
+            time * 1000
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Schedule Delete Error:",
+            error.message
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SEND AUTO DELETE MESSAGE
+// ===================================================
+
+async function sendAutoDeleteMessage(
+    chatId,
+    text
+) {
+
+
+    try {
+
+
+        const message =
+            await bot.sendMessage(
+
+                chatId,
+
+                text
+
+            );
+
+
+
+        await scheduleDelete(
+
+            chatId,
+
+            message.message_id
+
+        );
+
+
+
+        return message;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Auto Delete Message Error:",
+            error.message
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PART 1B-26 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-27
+// Ban Users System
+// ===================================================
+
+
+// ===================================================
+// CHECK USER BANNED
+// ===================================================
+
+async function isUserBanned(
+    userId
+) {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT id
+
+FROM banned_users
+
+WHERE user_id=$1
+
+LIMIT 1;
+`,
+
+[
+    userId
+]
+
+            );
+
+
+
+        return (
+            result.rows.length > 0
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Ban Check Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// BAN USER
+// ===================================================
+
+async function banUser(
+    userId,
+    reason
+) {
+
+
+    try {
+
+
+        await dbQuery(
+
+`
+INSERT INTO banned_users
+(
+user_id,
+reason
+)
+
+VALUES
+(
+$1,
+$2
+)
+
+ON CONFLICT(user_id)
+
+DO UPDATE SET
+
+reason=$2;
+`,
+
+[
+
+userId,
+
+reason || "No reason"
+
+]
+
+        );
+
+
+
+        await addLog(
+
+            "User Banned",
+
+            `User: ${userId} | Reason: ${reason}`
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Ban User Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// UNBAN USER
+// ===================================================
+
+async function unbanUser(
+    userId
+) {
+
+
+    try {
+
+
+        await dbQuery(
+
+`
+DELETE FROM banned_users
+
+WHERE user_id=$1;
+`,
+
+[
+    userId
+]
+
+        );
+
+
+
+        await addLog(
+
+            "User Unbanned",
+
+            `User: ${userId}`
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Unban User Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// GET BANNED USERS
+// ===================================================
+
+async function getBannedUsers() {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT *
+
+FROM banned_users
+
+ORDER BY created_at DESC;
+`
+
+            );
+
+
+
+        return result.rows;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Get Banned Users Error:",
+            error.message
+        );
+
+
+        return [];
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// BAN USER BUTTONS
+// ===================================================
+
+function getBanMenuButtons() {
+
+
+    return {
+
+
+        inline_keyboard:
+
+        [
+
+            [
+
+                {
+
+                    text:
+                    "🚫 Ban User",
+
+                    callback_data:
+                    "ban_add"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "✅ Unban User",
+
+                    callback_data:
+                    "ban_remove"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "📋 Banned List",
+
+                    callback_data:
+                    "ban_list"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "❌ Close",
+
+                    callback_data:
+                    "close"
+
+                }
+
+            ]
+
+        ]
+
+    };
+
+
+}
+
+
+
+// ===================================================
+// OPEN BAN PANEL
+// ===================================================
+
+async function openBanPanel(
+    chatId
+) {
+
+
+    try {
+
+
+        await bot.sendMessage(
+
+            chatId,
+
+`
+🚫 Ban Users Panel
+
+Select Action:
+            `,
+
+            {
+
+                reply_markup:
+                getBanMenuButtons()
+
+            }
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Ban Panel Error:",
+            error.message
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SEND BANNED USERS LIST
+// ===================================================
+
+async function sendBannedUsers(
+    chatId
+) {
+
+
+    try {
+
+
+        const users =
+            await getBannedUsers();
+
+
+
+        if(
+            users.length === 0
+        ) {
+
+
+            return bot.sendMessage(
+
+                chatId,
+
+`
+✅ No banned users.
+                `
+
+            );
+
+
+        }
+
+
+
+        let text =
+
+`
+🚫 Banned Users
+
+`;
+
+
+
+        for(
+            const user of users
+        ) {
+
+
+            text +=
+
+`
+👤 User ID:
+${user.user_id}
+
+Reason:
+${user.reason}
+
+`;
+
+        }
+
+
+
+        await bot.sendMessage(
+
+            chatId,
+
+            text
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Banned List Error:",
+            error.message
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// BAN ACCESS CHECK
+// ===================================================
+
+async function checkBanBeforeAccess(
+    userId
+) {
+
+
+    try {
+
+
+        return await isUserBanned(
+            userId
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Ban Access Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PART 1B-27 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-28
+// Broadcast System
+// ===================================================
+
+
+// ===================================================
+// GET ALL USERS
+// ===================================================
+
+async function getAllUsers() {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT user_id
+
+FROM users;
+`
+
+            );
+
+
+
+        return result.rows;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Get Users Error:",
+            error.message
+        );
+
+
+        return [];
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SAVE USER
+// ===================================================
+
+async function saveUser(
+    user
+) {
+
+
+    try {
+
+
+        if(
+            !user ||
+            !user.id
+        ) {
+
+
+            return false;
+
+
+        }
+
+
+
+        await dbQuery(
+
+`
+INSERT INTO users
+(
+user_id,
+username
+)
+
+VALUES
+(
+$1,
+$2
+)
+
+ON CONFLICT(user_id)
+
+DO UPDATE SET
+
+username=$2;
+`,
+
+[
+
+user.id,
+
+user.username || null
+
+]
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Save User Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SEND BROADCAST
+// ===================================================
+
+async function sendBroadcast(
+    fromChatId,
+    messageId
+) {
+
+
+    try {
+
+
+        const users =
+            await getAllUsers();
+
+
+
+        if(
+            users.length === 0
+        ) {
+
+
+            await bot.sendMessage(
+
+                fromChatId,
+
+`
+❌ No users found.
+                `
+
+            );
+
+
+            return false;
+
+
+        }
+
+
+
+        let sent = 0;
+
+        let failed = 0;
+
+
+
+        for(
+            const user of users
+        ) {
+
+
+            try {
+
+
+                await bot.copyMessage(
+
+                    user.user_id,
+
+                    fromChatId,
+
+                    messageId
+
+                );
+
+
+
+                sent++;
+
+
+            }
+
+            catch(error) {
+
+
+                failed++;
+
+
+                console.error(
+
+                    `Broadcast failed for ${user.user_id}:`,
+
+                    error.message
+
+                );
+
+
+            }
+
+
+        }
+
+
+
+        await addLog(
+
+            "Broadcast",
+
+            `Sent: ${sent} | Failed: ${failed}`
+
+        );
+
+
+
+        await bot.sendMessage(
+
+            fromChatId,
+
+`
+📢 Broadcast Completed
+
+
+✅ Sent:
+${sent}
+
+
+❌ Failed:
+${failed}
+            `
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Broadcast Error:",
+            error.message
+        );
+
+
+        await addLog(
+
+            "Broadcast",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// BROADCAST MENU
+// ===================================================
+
+function getBroadcastButtons() {
+
+
+    return {
+
+
+        inline_keyboard:
+
+        [
+
+            [
+
+                {
+
+                    text:
+                    "📢 Start Broadcast",
+
+                    callback_data:
+                    "broadcast_start"
+
+                }
+
+            ],
+
+
+            [
+
+                {
+
+                    text:
+                    "❌ Close",
+
+                    callback_data:
+                    "close"
+
+                }
+
+            ]
+
+        ]
+
+    };
+
+
+}
+
+
+
+// ===================================================
+// OPEN BROADCAST PANEL
+// ===================================================
+
+async function openBroadcastPanel(
+    chatId
+) {
+
+
+    try {
+
+
+        await bot.sendMessage(
+
+            chatId,
+
+`
+📢 Broadcast Panel
+
+Send the message you want to broadcast.
+            `,
+
+            {
+
+                reply_markup:
+                getBroadcastButtons()
+
+            }
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Broadcast Panel Error:",
+            error.message
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// BROADCAST STATE SAVE
+// ===================================================
+
+function startBroadcastSession(
+    userId
+) {
+
+
+    broadcastStates.set(
+
+        userId,
+
+        {
+
+            active:true
+
+        }
+
+    );
+
+
+}
+
+
+
+// ===================================================
+// CHECK BROADCAST SESSION
+// ===================================================
+
+function isBroadcasting(
+    userId
+) {
+
+
+    const data =
+        broadcastStates.get(
+            userId
+        );
+
+
+
+    return !!(
+        data &&
+        data.active
+    );
+
+
+}
+
+
+
+// ===================================================
+// CLEAR BROADCAST SESSION
+// ===================================================
+
+function clearBroadcastSession(
+    userId
+) {
+
+
+    broadcastStates.delete(
+        userId
+    );
+
+
+}
+
+
+
+// ===================================================
+// PART 1B-28 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-29
+// Premium System
+// ===================================================
+
+
+// ===================================================
+// PREMIUM CHANNEL ID
+// ===================================================
+
+const PREMIUM_CHANNEL_ID =
+    "-1004429685937";
+
+
+// ===================================================
+// CHECK PREMIUM MEMBER
+// ===================================================
+
+async function isPremiumMember(
+    userId
+) {
+
+
+    try {
+
+
+        const member =
+            await bot.getChatMember(
+
+                PREMIUM_CHANNEL_ID,
+
+                userId
+
+            );
+
+
+
+        const allowed = [
+
+            "member",
+
+            "administrator",
+
+            "creator"
+
+        ];
+
+
+
+        return allowed.includes(
+            member.status
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Premium Check Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// VERIFY CONTENT ACCESS
+// ===================================================
+
+async function verifyContentAccess(
+    userId,
+    content
+) {
+
+
+    try {
+
+
+        if(
+            !content
+        ) {
+
+
+            return false;
+
+
+        }
+
+
+
+        if(
+            content.access_type
+            !==
+            "premium"
+        ) {
+
+
+            return true;
+
+
+        }
+
+
+
+        return await isPremiumMember(
+            userId
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Content Access Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PREMIUM MESSAGE
+// ===================================================
+
+async function sendPremiumMessage(
+    chatId
+) {
+
+
+    try {
+
+
+        const message =
+            await bot.sendMessage(
+
+                chatId,
+
+`
+⭐ Premium Content
+
+
+This content is available only for Premium Members.
+
+
+Contact Admin for Premium Files Access.
+                `,
+
+                {
+
+                    reply_markup:
+
+                    {
+
+                        inline_keyboard:
+
+                        [
+
+                            [
+
+                                {
+
+                                    text:
+                                    "👤 Contact Admin",
+
+                                    url:
+                                    process.env.ADMIN_BOT_LINK
+
+                                }
+
+                            ],
+
+                            [
+
+                                {
+
+                                    text:
+                                    "❌ Close",
+
+                                    callback_data:
+                                    "close"
+
+                                }
+
+                            ]
+
+                        ]
+
+                    }
+
+                }
+
+            );
+
+
+
+        await scheduleDelete(
+
+            chatId,
+
+            message.message_id
+
+        );
+
+
+
+        return message;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Premium Message Error:",
+            error.message
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PREMIUM FILE COUNT
+// ===================================================
+
+async function getPremiumFileCount() {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT COUNT(*) 
+
+FROM contents
+
+WHERE access_type='premium';
+`
+
+            );
+
+
+
+        return Number(
+            result.rows[0].count
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Premium Count Error:",
+            error.message
+        );
+
+
+        return 0;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PREMIUM MEMBER LOG
+// ===================================================
+
+async function logPremiumMember(
+    userId
+) {
+
+
+    try {
+
+
+        await addLog(
+
+            "Premium Member Joined",
+
+            `User: ${userId}`
+
+        );
+
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Premium Log Error:",
+            error.message
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// CHECK PREMIUM JOIN EVENT
+// ===================================================
+
+async function checkPremiumJoin(
+    userId
+) {
+
+
+    try {
+
+
+        const premium =
+            await isPremiumMember(
+                userId
+            );
+
+
+
+        if(
+            premium
+        ) {
+
+
+            await logPremiumMember(
+                userId
+            );
+
+
+        }
+
+
+
+        return premium;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+            "Premium Join Check Error:",
+            error.message
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PART 1B-29 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-30
+// Logs + Startup Verification
+// ===================================================
+
+
+// ===================================================
+// ADD SYSTEM LOG
+// ===================================================
+
+async function addLog(
+    action,
+    details
+) {
+
+
+    try {
+
+
+        await dbQuery(
+
+`
+INSERT INTO logs
+(
+action,
+details
+)
+
+VALUES
+(
+$1,
+$2
+);
+`,
+
+[
+
+action,
+
+details || ""
+
+]
+
+        );
+
+
+
+        console.log(
+
+`
+[LOG]
+${action}
+${details || ""}
+`
+
+        );
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Log Save Error:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// DATABASE CONNECTION CHECK
+// ===================================================
+
+async function checkDatabaseConnection() {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT NOW();
+`
+
+            );
+
+
+
+        return !!result.rows[0];
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Database Connection Failed:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// VERIFY DATABASE TABLES
+// ===================================================
+
+async function verifyTables() {
+
+
+    try {
+
+
+        const tables = [
+
+            "contents",
+
+            "users",
+
+            "settings",
+
+            "requests",
+
+            "banned_users",
+
+            "logs"
+
+        ];
+
+
+
+        for(
+            const table of tables
+        ) {
+
+
+            const result =
+                await dbQuery(
+
+`
+SELECT EXISTS
+(
+SELECT FROM information_schema.tables
+
+WHERE table_name=$1
+);
+`,
+
+[
+
+table
+
+]
+
+                );
+
+
+
+            if(
+                !result.rows[0].exists
+            ) {
+
+
+                console.error(
+
+                    `Missing table: ${table}`
+
+                );
+
+
+                return false;
+
+
+            }
+
+
+        }
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Table Verification Error:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// LOAD SETTINGS
+// ===================================================
+
+async function loadBotSettings() {
+
+
+    try {
+
+
+        const settings =
+            await getBotSettings();
+
+
+
+        Object.assign(
+
+            botSettings,
+
+            settings
+
+        );
+
+
+
+        console.log(
+
+            "Settings Loaded"
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Settings Load Error:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// STARTUP STATUS
+// ===================================================
+
+async function startupCheck() {
+
+
+    console.log(
+
+`
+🚀 CineXClub Bot Starting...
+`
+
+    );
+
+
+
+    const database =
+        await checkDatabaseConnection();
+
+
+
+    if(database) {
+
+
+        console.log(
+
+            "✅ Database Connected"
+
+        );
+
+
+    }
+
+    else {
+
+
+        console.error(
+
+            "❌ Database Connection Failed"
+
+        );
+
+
+    }
+
+
+
+    const tables =
+        await verifyTables();
+
+
+
+    if(tables) {
+
+
+        console.log(
+
+            "✅ Tables Verified"
+
+        );
+
+
+    }
+
+    else {
+
+
+        console.error(
+
+            "❌ Table Verification Failed"
+
+        );
+
+
+    }
+
+
+
+    await loadBotSettings();
+
+
+
+    console.log(
+
+        "✅ Welcome Loaded"
+
+    );
+
+
+
+    console.log(
+
+        "✅ Upload Ready"
+
+    );
+
+
+
+    console.log(
+
+        "✅ Search Ready"
+
+    );
+
+
+
+    console.log(
+
+        "✅ Premium Ready"
+
+    );
+
+
+
+    console.log(
+
+        "🤖 Bot Ready"
+
+    );
+
+
+}
+
+
+
+// ===================================================
+// ERROR LOGGER
+// ===================================================
+
+function logError(
+    type,
+    error
+) {
+
+
+    const reason =
+        error.message
+        ||
+        "Unknown Error";
+
+
+
+    console.error(
+
+`
+❌ ${type}
+
+Reason:
+${reason}
+`
+
+    );
+
+
+}
+
+
+
+// ===================================================
+// PART 1B-30 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-31
+// Start Command System
+// ===================================================
+
+
+// ===================================================
+// FORMAT USER NAME
+// ===================================================
+
+function formatUserName(
+    user
+) {
+
+
+    try {
+
+
+        if(
+            user.first_name
+        ) {
+
+
+            return user.first_name;
+
+
+        }
+
+
+
+        if(
+            user.username
+        ) {
+
+
+            return user.username
+                .replace(
+                    "@",
+                    ""
+                );
+
+
+        }
+
+
+
+        return "User";
+
+
+    }
+
+    catch(error) {
+
+
+        return "User";
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// CHECK FORCE JOIN
+// ===================================================
+
+async function checkForceJoin(
+    userId
+) {
+
+
+    try {
+
+
+        const member =
+            await bot.getChatMember(
+
+                "@CineXClub",
+
+                userId
+
+            );
+
+
+
+        const allowed = [
+
+            "member",
+
+            "administrator",
+
+            "creator"
+
+        ];
+
+
+
+        return allowed.includes(
+            member.status
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// FORCE JOIN MESSAGE
+// ===================================================
+
+async function sendForceJoin(
+    chatId
+) {
+
+
+    try {
+
+
+        await bot.sendMessage(
+
+            chatId,
+
+`
+⚠️ Join CineXClub to continue.
+
+After joining click Verify.
+            `,
+
+            {
+
+                reply_markup:
+
+                {
+
+                    inline_keyboard:
+
+                    [
+
+                        [
+
+                            {
+
+                                text:
+                                "📢 Join Channel",
+
+                                url:
+                                "https://t.me/CineXClub"
+
+                            }
+
+                        ],
+
+                        [
+
+                            {
+
+                                text:
+                                "✅ Verify",
+
+                                callback_data:
+                                "verify_join"
+
+                            }
+
+                        ]
+
+                    ]
+
+                }
+
+            }
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Force Join Error:",
+
+            error.message
+
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// GET RANDOM WELCOME IMAGE
+// ===================================================
+
+function getRandomWelcomeImage() {
+
+
+    try {
+
+
+        const images =
+            JSON.parse(
+
+                botSettings.welcome_images
+                ||
+                "[]"
+
+            );
+
+
+
+        if(
+            images.length === 0
+        ) {
+
+
+            return null;
+
+
+        }
+
+
+
+        return images[
+
+            Math.floor(
+
+                Math.random()
+                *
+                images.length
+
+            )
+
+        ];
+
+
+    }
+
+    catch(error) {
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SEND WELCOME
+// ===================================================
+
+async function sendWelcome(
+    message
+) {
+
+
+    try {
+
+
+        const chatId =
+            message.chat.id;
+
+
+
+        const name =
+            formatUserName(
+                message.from
+            );
+
+
+
+        const caption =
+
+`
+👋 Welcome ${name}
+
+
+${botSettings.welcome_caption || 
+"Search your favourite Movies, Series and Anime."}
+
+
+Choose an option below:
+`;
+
+
+
+        const buttons =
+
+        {
+
+            inline_keyboard:
+
+            [
+
+                [
+
+                    {
+
+                        text:
+                        "🎬 Movies",
+
+                        callback_data:
+                        "category_movies"
+
+                    },
+
+                    {
+
+                        text:
+                        "📺 Series",
+
+                        callback_data:
+                        "category_series"
+
+                    }
+
+                ],
+
+
+                [
+
+                    {
+
+                        text:
+                        "🎌 Anime",
+
+                        callback_data:
+                        "category_anime"
+
+                    },
+
+                    {
+
+                        text:
+                        "🔎 Search",
+
+                        callback_data:
+                        "search_start"
+
+                    }
+
+                ],
+
+
+                [
+
+                    {
+
+                        text:
+                        "ℹ️ About",
+
+                        callback_data:
+                        "about"
+
+                    }
+
+                ],
+
+
+                [
+
+                    {
+
+                        text:
+                        "❌ Close",
+
+                        callback_data:
+                        "close_welcome"
+
+                    }
+
+                ]
+
+            ]
+
+        };
+
+
+
+        const image =
+            getRandomWelcomeImage();
+
+
+
+        let sent;
+
+
+
+        if(
+            image
+        ) {
+
+
+            sent =
+            await bot.sendPhoto(
+
+                chatId,
+
+                image,
+
+                {
+
+                    caption,
+
+                    reply_markup:
+                    buttons
+
+                }
+
+            );
+
+
+        }
+
+        else {
+
+
+            sent =
+            await bot.sendMessage(
+
+                chatId,
+
+                caption,
+
+                {
+
+                    reply_markup:
+                    buttons
+
+                }
+
+            );
+
+
+        }
+
+
+
+        return sent;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Welcome Send Error:",
+
+            error.message
+
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// GET CONTENT BY ID
+// ===================================================
+
+async function getContentById(
+    contentId
+) {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT *
+
+FROM contents
+
+WHERE content_id=$1
+
+LIMIT 1;
+`,
+
+[
+
+contentId
+
+]
+
+            );
+
+
+
+        return (
+
+            result.rows[0]
+            ||
+            null
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Deep Link Search Error:",
+
+            error.message
+
+        );
+
+
+        return null;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SEND START CONTENT
+// ===================================================
+
+async function handleStartContent(
+    chatId,
+    userId,
+    contentId
+) {
+
+
+    try {
+
+
+        const content =
+            await getContentById(
+                contentId
+            );
+
+
+
+        if(
+            !content
+        ) {
+
+
+            return sendAutoDeleteMessage(
+
+                chatId,
+
+`
+❌ Video not in our database.
+
+Use exact spelling or search again.
+                `
+
+            );
+
+
+        }
+
+
+
+        return await sendWithAccessCheck(
+
+            chatId,
+
+            userId,
+
+            content
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Start Content Error:",
+
+            error.message
+
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PART 1B-31 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-32
+// Single Message Handler
+// ===================================================
+
+
+// ===================================================
+// SEARCH STATE
+// ===================================================
+
+const searchStates =
+    new Map();
+
+
+// ===================================================
+// START SEARCH
+// ===================================================
+
+function startSearch(
+    userId
+) {
+
+
+    searchStates.set(
+
+        userId,
+
+        {
+
+            active:true
+
+        }
+
+    );
+
+}
+
+
+
+// ===================================================
+// CHECK SEARCH STATE
+// ===================================================
+
+function isSearching(
+    userId
+) {
+
+
+    return !!(
+
+        searchStates.get(
+            userId
+        )
+
+    );
+
+
+}
+
+
+
+// ===================================================
+// CLEAR SEARCH
+// ===================================================
+
+function clearSearch(
+    userId
+) {
+
+
+    searchStates.delete(
+        userId
+    );
+
+}
+
+
+
+// ===================================================
+// SEARCH CONTENT
+// ===================================================
+
+async function searchContent(
+    keyword
+) {
+
+
+    try {
+
+
+        const result =
+            await dbQuery(
+
+`
+SELECT *
+
+FROM contents
+
+WHERE title ILIKE $1
+
+ORDER BY created_at DESC
+
+LIMIT 20;
+`,
+
+[
+
+`%${keyword}%`
+
+]
+
+            );
+
+
+
+        return result.rows;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Search Error:",
+
+            error.message
+
+        );
+
+
+        return [];
+
+    }
+
+}
+
+
+
+// ===================================================
+// SEARCH RESULT BUTTONS
+// ===================================================
+
+function createSearchButtons(
+    contents
+) {
+
+
+    const buttons = [];
+
+
+
+    for(
+        const item of contents
+    ) {
+
+
+        buttons.push(
+
+            [
+
+                {
+
+                    text:
+                    item.title,
+
+                    callback_data:
+                    `open_content_${item.id}`
+
+                }
+
+            ]
+
+        );
+
+
+    }
+
+
+
+    return buttons;
+
+
+}
+
+
+
+// ===================================================
+// SEND SEARCH RESULTS
+// ===================================================
+
+async function sendSearchResults(
+    chatId,
+    results
+) {
+
+
+    try {
+
+
+        if(
+            results.length === 0
+        ) {
+
+
+            return sendAutoDeleteMessage(
+
+                chatId,
+
+`
+❌ No file found.
+
+⚠️ Type exact spelling.
+                `
+
+            );
+
+
+        }
+
+
+
+        await bot.sendMessage(
+
+            chatId,
+
+`
+🔎 Search Results
+
+Select your file:
+            `,
+
+            {
+
+                reply_markup:
+
+                {
+
+                    inline_keyboard:
+
+                    createSearchButtons(
+                        results
+                    )
+
+                }
+
+            }
+
+        );
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Search Result Error:",
+
+            error.message
+
+        );
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// SINGLE MESSAGE HANDLER
+// ===================================================
+
+bot.on(
+"message",
+
+async (message) => {
+
+
+    try {
+
+
+        if(
+            !message
+            ||
+            !message.from
+        ) {
+
+
+            return;
+
+
+        }
+
+
+
+        const userId =
+            message.from.id;
+
+
+
+        const chatId =
+            message.chat.id;
+
+
+
+        // Save User
+
+        await saveUser(
+
+            message.from
+
+        );
+
+
+
+        // Ban Check
+
+        if(
+            await isUserBanned(
+                userId
+            )
+        ) {
+
+
+            return sendAutoDeleteMessage(
+
+                chatId,
+
+`
+🚫 You are banned from using this bot.
+                `
+
+            );
+
+
+        }
+
+
+
+        // Upload Process
+
+        if(
+            getUploadSession(
+                userId
+            )
+        ) {
+
+
+            const handled =
+                await processUploadMessage(
+
+                    message
+
+                );
+
+
+
+            if(
+                handled
+            ) {
+
+
+                return;
+
+
+            }
+
+
+        }
+
+
+
+        // Broadcast Process
+
+        if(
+            isBroadcasting(
+                userId
+            )
+        ) {
+
+
+            clearBroadcastSession(
+                userId
+            );
+
+
+            return await sendBroadcast(
+
+                chatId,
+
+                message.message_id
+
+            );
+
+
+        }
+
+
+
+        // Text Only
+
+        if(
+            !message.text
+        ) {
+
+
+            return;
+
+
+        }
+
+
+
+        const text =
+            message.text.trim();
+
+
+
+        // Start Command
+
+        if(
+            text.startsWith(
+                "/start"
+            )
+        ) {
+
+
+            const parts =
+                text.split(" ");
+
+
+
+            const parameter =
+                parts[1];
+
+
+
+            const joined =
+                await checkForceJoin(
+                    userId
+                );
+
+
+
+            if(
+                !joined
+            ) {
+
+
+                return sendForceJoin(
+                    chatId
+                );
+
+
+            }
+
+
+
+            if(
+                parameter
+            ) {
+
+
+                return handleStartContent(
+
+                    chatId,
+
+                    userId,
+
+                    parameter
+
+                );
+
+
+            }
+
+
+
+            return sendWelcome(
+                message
+            );
+
+
+        }
+
+
+
+        // Search Mode
+
+        if(
+            isSearching(
+                userId
+            )
+        ) {
+
+
+            clearSearch(
+                userId
+            );
+
+
+
+            const results =
+                await searchContent(
+                    text
+                );
+
+
+
+            return sendSearchResults(
+
+                chatId,
+
+                results
+
+            );
+
+
+        }
+
+
+
+        // Search Command
+
+        if(
+            text === "/search"
+        ) {
+
+
+            startSearch(
+                userId
+            );
+
+
+
+            return bot.sendMessage(
+
+                chatId,
+
+`
+🔎 Search your Movie, Series, Anime name
+
+Example:
+
+Iron Man 1
+
+Stranger Things S01E01
+
+Naruto Episode 1
+
+
+⚠️ Type exact spelling.
+                `
+
+            );
+
+
+        }
+
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Message Handler Error:",
+
+            error.message
+
+        );
+
+
+    }
+
+
+});
+
+
+
+// ===================================================
+// PART 1B-32 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-33
+// Single Callback Query Handler
+// ===================================================
+
+
+// ===================================================
+// CALLBACK QUERY HANDLER
+// ONLY ONE CALLBACK HANDLER
+// ===================================================
+
+bot.on(
+"callback_query",
+
+async (query) => {
+
+
+    try {
+
+
+        const data =
+            query.data;
+
+
+        const chatId =
+            query.message.chat.id;
+
+
+        const userId =
+            query.from.id;
+
+
+
+        await bot.answerCallbackQuery(
+            query.id
+        );
+
+
+
+        // ================================
+        // CLOSE MESSAGE
+        // ================================
+
+        if(
+            data === "close"
+            ||
+            data === "close_welcome"
+        ) {
+
+
+            try {
+
+
+                await bot.deleteMessage(
+
+                    chatId,
+
+                    query.message.message_id
+
+                );
+
+
+            }
+
+            catch(error){}
+
+
+
+            return;
+
+
+        }
+
+
+
+        // ================================
+        // FORCE JOIN VERIFY
+        // ================================
+
+        if(
+            data === "verify_join"
+        ) {
+
+
+            const joined =
+                await checkForceJoin(
+                    userId
+                );
+
+
+
+            if(
+                joined
+            ) {
+
+
+                return sendWelcome(
+
+                    query.message
+
+                );
+
+
+            }
+
+
+
+            return bot.sendMessage(
+
+                chatId,
+
+`
+❌ Please join @CineXClub first.
+                `
+
+            );
+
+
+        }
+
+
+
+        // ================================
+        // ABOUT BUTTON
+        // ================================
+
+        if(
+            data === "about"
+        ) {
+
+
+            return bot.sendMessage(
+
+                chatId,
+
+`
+ℹ️ CineXClub Bot
+
+
+🎬 Movies
+📺 Series
+🎌 Anime
+
+
+Fast and simple movie access system.
+                `
+
+            );
+
+
+        }
+
+
+
+        // ================================
+        // SEARCH BUTTON
+        // ================================
+
+        if(
+            data === "search_start"
+        ) {
+
+
+            startSearch(
+                userId
+            );
+
+
+
+            return bot.sendMessage(
+
+                chatId,
+
+`
+🔎 Search your Movie, Series, Anime name
+
+Example:
+
+Iron Man 1
+
+Stranger Things S01E01
+
+Naruto Episode 1
+
+
+⚠️ Type exact spelling.
+                `
+
+            );
+
+
+        }
+
+
+
+        // ================================
+        // ADMIN PANEL
+        // ================================
+
+        if(
+            data.startsWith(
+                "admin_"
+            )
+        ) {
+
+
+            const allowed =
+                await verifyAdminAction(
+                    query
+                );
+
+
+
+            if(
+                !allowed
+            ) {
+
+
+                return bot.sendMessage(
+
+                    chatId,
+
+`
+❌ Admin access required.
+                    `
+
+                );
+
+
+            }
+
+
+
+        }
+
+
+
+        // ================================
+        // OPEN UPLOAD
+        // ================================
+
+        if(
+            data === "admin_upload"
+        ) {
+
+
+            return openUploadMenu(
+
+                chatId,
+
+                userId
+
+            );
+
+
+        }
+
+
+
+        // ================================
+        // ADMIN STATISTICS
+        // ================================
+
+        if(
+            data === "admin_stats"
+        ) {
+
+
+            return sendAdminStatistics(
+                chatId
+            );
+
+
+        }
+
+
+
+        // ================================
+        // ADMIN WELCOME SETTINGS
+        // ================================
+
+        if(
+            data === "admin_welcome"
+        ) {
+
+
+            return openWelcomeSettings(
+                chatId
+            );
+
+
+        }
+
+
+
+        // ================================
+        // ADMIN BOT SETTINGS
+        // ================================
+
+        if(
+            data === "admin_settings"
+        ) {
+
+
+            return openBotSettings(
+                chatId
+            );
+
+
+        }
+
+
+
+        // ================================
+        // ADMIN BROADCAST
+        // ================================
+
+        if(
+            data === "admin_broadcast"
+        ) {
+
+
+            startBroadcastSession(
+                userId
+            );
+
+
+
+            return openBroadcastPanel(
+                chatId
+            );
+
+
+        }
+
+
+
+        // ================================
+        // ADMIN BAN PANEL
+        // ================================
+
+        if(
+            data === "admin_ban"
+        ) {
+
+
+            return openBanPanel(
+                chatId
+            );
+
+
+        }
+
+
+
+        // ================================
+        // UPLOAD TYPE
+        // ================================
+
+        if(
+            data.startsWith(
+                "upload_type_"
+            )
+        ) {
+
+
+            return handleUploadType(
+                query
+            );
+
+
+        }
+
+
+
+        // ================================
+        // UPLOAD ACCESS
+        // ================================
+
+        if(
+            data.startsWith(
+                "upload_access_"
+            )
+        ) {
+
+
+            return handleUploadAccess(
+                query
+            );
+
+
+        }
+
+
+
+        // ================================
+        // UPLOAD QUALITY
+        // ================================
+
+        if(
+            data.startsWith(
+                "upload_quality_"
+            )
+        ) {
+
+
+            return handleUploadQuality(
+                query
+            );
+
+
+        }
+
+
+
+        // ================================
+        // DELETE TIME SETTINGS
+        // ================================
+
+        if(
+            data.startsWith(
+                "delete_time_"
+            )
+        ) {
+
+
+            const seconds =
+                data.replace(
+                    "delete_time_",
+                    ""
+                );
+
+
+
+            await updateAutoDeleteTime(
+                seconds
+            );
+
+
+
+            return bot.sendMessage(
+
+                chatId,
+
+`
+✅ Auto Delete Updated
+                `
+
+            );
+
+
+        }
+
+
+
+        // ================================
+        // OPEN CONTENT
+        // ================================
+
+        if(
+            data.startsWith(
+                "open_content_"
+            )
+        ) {
+
+
+            const id =
+                data.replace(
+                    "open_content_",
+                    ""
+                );
+
+
+
+            const content =
+                await getContentByDatabaseId(
+                    id
+                );
+
+
+
+            if(
+                !content
+            ) {
+
+
+                return sendAutoDeleteMessage(
+
+                    chatId,
+
+`
+❌ File not found.
+                    `
+
+                );
+
+
+            }
+
+
+
+            return sendWithAccessCheck(
+
+                chatId,
+
+                userId,
+
+                content
+
+            );
+
+
+        }
+
+
+
+        // ================================
+        // QUALITY SEND
+        // ================================
+
+        if(
+            data.startsWith(
+                "quality_"
+            )
+        ) {
+
+
+            const parts =
+                data.split("_");
+
+
+
+            const contentId =
+                parts[1];
+
+
+
+            const quality =
+                parts[2];
+
+
+
+            const content =
+                await getContentById(
+                    contentId
+                );
+
+
+
+            if(
+                !content
+            ) {
+
+
+                return;
+
+            }
+
+
+
+            if(
+                content.quality
+                !==
+                quality
+            ) {
+
+
+                return sendAutoDeleteMessage(
+
+                    chatId,
+
+`
+❌ Selected quality unavailable.
+                    `
+
+                );
+
+
+            }
+
+
+
+            return sendWithAccessCheck(
+
+                chatId,
+
+                userId,
+
+                content
+
+            );
+
+
+        }
+
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Callback Handler Error:",
+
+            error.message
+
+        );
+
+
+    }
+
+
+});
+
+
+// ===================================================
+// PART 1B-33 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-34
+// Database Initialization System
+// ===================================================
+
+
+
+// ===================================================
+// CREATE DATABASE TABLES
+// ===================================================
+
+async function createRequiredTables() {
+
+
+    try {
+
+
+        await dbQuery(`
+
+CREATE TABLE IF NOT EXISTS contents
+(
+
+id SERIAL PRIMARY KEY,
+
+content_id TEXT UNIQUE NOT NULL,
+
+title TEXT NOT NULL,
+
+type TEXT NOT NULL,
+
+collection TEXT,
+
+year INTEGER,
+
+season INTEGER,
+
+episode INTEGER,
+
+quality TEXT,
+
+audio TEXT,
+
+size TEXT,
+
+language TEXT,
+
+access_type TEXT DEFAULT 'normal',
+
+file_id TEXT NOT NULL,
+
+created_at TIMESTAMP DEFAULT NOW()
+
+);
+
+        `);
+
+
+
+        await dbQuery(`
+
+CREATE TABLE IF NOT EXISTS users
+(
+
+id SERIAL PRIMARY KEY,
+
+user_id BIGINT UNIQUE NOT NULL,
+
+username TEXT,
+
+created_at TIMESTAMP DEFAULT NOW()
+
+);
+
+        `);
+
+
+
+        await dbQuery(`
+
+CREATE TABLE IF NOT EXISTS settings
+(
+
+id SERIAL PRIMARY KEY,
+
+setting_key TEXT UNIQUE NOT NULL,
+
+setting_value TEXT
+
+);
+
+        `);
+
+
+
+        await dbQuery(`
+
+CREATE TABLE IF NOT EXISTS requests
+(
+
+id SERIAL PRIMARY KEY,
+
+user_id BIGINT,
+
+request TEXT,
+
+status TEXT DEFAULT 'pending',
+
+created_at TIMESTAMP DEFAULT NOW()
+
+);
+
+        `);
+
+
+
+        await dbQuery(`
+
+CREATE TABLE IF NOT EXISTS banned_users
+(
+
+id SERIAL PRIMARY KEY,
+
+user_id BIGINT UNIQUE NOT NULL,
+
+reason TEXT,
+
+created_at TIMESTAMP DEFAULT NOW()
+
+);
+
+        `);
+
+
+
+        await dbQuery(`
+
+CREATE TABLE IF NOT EXISTS logs
+(
+
+id SERIAL PRIMARY KEY,
+
+action TEXT,
+
+details TEXT,
+
+created_at TIMESTAMP DEFAULT NOW()
+
+);
+
+        `);
+
+
+
+        console.log(
+            "✅ Tables Verified"
+        );
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Table Creation Error:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// INSERT DEFAULT SETTINGS
+// ===================================================
+
+async function insertDefaultSettings() {
+
+
+    try {
+
+
+        const defaults = [
+
+            [
+
+                "welcome_images",
+
+                "[]"
+
+            ],
+
+
+            [
+
+                "welcome_caption",
+
+                "Search your favourite Movies, Series and Anime."
+
+            ],
+
+
+            [
+
+                "auto_delete",
+
+                "600"
+
+            ]
+
+        ];
+
+
+
+        for(
+            const item of defaults
+        ) {
+
+
+            await dbQuery(
+
+`
+
+INSERT INTO settings
+
+(
+setting_key,
+
+setting_value
+
+)
+
+VALUES
+
+($1,$2)
+
+ON CONFLICT(setting_key)
+
+DO NOTHING;
+
+`,
+
+item
+
+            );
+
+
+        }
+
+
+
+        console.log(
+
+            "✅ Default Settings Loaded"
+
+        );
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Default Settings Error:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// COMPLETE DATABASE INITIALIZATION
+// ===================================================
+
+async function initializeDatabase() {
+
+
+    try {
+
+
+        const connected =
+            await checkDatabaseConnection();
+
+
+
+        if(
+            !connected
+        ) {
+
+
+            throw new Error(
+                "Database connection failed"
+            );
+
+
+        }
+
+
+
+        await createRequiredTables();
+
+
+
+        await insertDefaultSettings();
+
+
+
+        await loadBotSettings();
+
+
+
+        console.log(
+
+            "✅ Database Initialization Complete"
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Database Initialization Failed:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// CHECK REQUIRED SETTINGS
+// ===================================================
+
+async function verifySettingsLoaded() {
+
+
+    try {
+
+
+        const required = [
+
+            "welcome_images",
+
+            "welcome_caption",
+
+            "auto_delete"
+
+        ];
+
+
+
+        for(
+            const key of required
+        ) {
+
+
+            if(
+                !botSettings[key]
+            ) {
+
+
+                console.error(
+
+                    `Missing setting: ${key}`
+
+                );
+
+
+                return false;
+
+
+            }
+
+
+        }
+
+
+
+        console.log(
+
+            "✅ Settings Loaded"
+
+        );
+
+
+
+        return true;
+
+
+    }
+
+    catch(error) {
+
+
+        console.error(
+
+            "Settings Verify Error:",
+
+            error.message
+
+        );
+
+
+        return false;
+
+
+    }
+
+}
+
+
+
+// ===================================================
+// PART 1B-34 END
+// ===================================================
+// ===================================================
+// CineXClub Bot
+// Production Ready Telegram Movie Bot
+// PART 1B-35 FINAL
+// Bot Launch System
+// ===================================================
+
+
+// ===================================================
+// KEEP ALIVE SERVER (RENDER)
+// ===================================================
+
+const http =
+require("http");
+
+
+
+const PORT =
+process.env.PORT || 3000;
+
+
+
+const server =
+http.createServer(
+
+(req,res)=>{
+
+
+    res.writeHead(
+        200,
+        {
+            "Content-Type":
+            "text/plain"
+        }
+    );
+
+
+    res.end(
+        "CineXClub Bot Running"
+    );
+
+
+}
+
+);
+
+
+
+server.listen(
+
+PORT,
+
+()=>{
+
+
+console.log(
+
+`🌐 Keep Alive Server Started On ${PORT}`
+
+);
+
+
+}
+
+);
+
+
+
+// ===================================================
+// BOT POLLING ERROR HANDLER
+// ===================================================
+
+bot.on(
+"polling_error",
+
+(error)=>{
+
+
+console.error(
+
+"Telegram Polling Error:",
+
+error.message
+
+);
+
+
+}
+
+);
+
+
+
+// ===================================================
+// WEBHOOK ERROR HANDLER
+// ===================================================
+
+process.on(
+
+"uncaughtException",
+
+(error)=>{
+
+
+console.error(
+
+"Uncaught Exception:",
+
+error.message
+
+);
+
+
+}
+
+);
+
+
+
+process.on(
+
+"unhandledRejection",
+
+(error)=>{
+
+
+console.error(
+
+"Unhandled Rejection:",
+
+error
+
+);
+
+
+}
+
+);
+
+
+
+// ===================================================
+// BOT STARTUP
+// ===================================================
+
+async function startBot(){
+
+
+    try{
+
+
+        console.log(
+
+`
+🚀 Starting CineXClub Bot...
+`
+
+        );
+
+
+
+        const database =
+        await initializeDatabase();
+
+
+
+        if(
+            !database
+        ){
+
+
+            throw new Error(
+
+                "Database initialization failed"
+
+            );
+
+
+        }
+
+
+
+        await startupCheck();
+
+
+
+        const settings =
+        await verifySettingsLoaded();
+
+
+
+        if(
+            !settings
+        ){
+
+
+            throw new Error(
+
+                "Settings loading failed"
+
+            );
+
+
+        }
+
+
+
+        console.log(
+
+`
+==============================
+
+✅ Database Connected
+
+✅ Tables Verified
+
+✅ Settings Loaded
+
+✅ Welcome Loaded
+
+✅ Upload Ready
+
+✅ Search Ready
+
+✅ Premium Ready
+
+🤖 CineXClub Bot Ready
+
+==============================
+`
+
+        );
+
+
+
+        await addLog(
+
+            "Bot Started",
+
+            "CineXClub Bot is online"
+
+        );
+
+
+
+    }
+
+    catch(error){
+
+
+        console.error(
+
+            "BOT START FAILED:",
+
+            error.message
+
+        );
+
+
+        process.exit(1);
+
+
+    }
+
+
+}
+
+
+
+// ===================================================
+// START APPLICATION
+// ===================================================
+
+startBot();
+
+
+
+// ===================================================
+// END OF CineXClub BOT
+// ===================================================

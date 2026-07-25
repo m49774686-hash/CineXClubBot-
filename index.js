@@ -150,7 +150,7 @@ const userStates = new Map();
 
 const uploadStates = new Map();
 
-const searchStates = new Map();
+
 
 const deleteTimers = new Map();
 
